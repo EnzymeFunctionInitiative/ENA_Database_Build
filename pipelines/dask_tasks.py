@@ -81,6 +81,36 @@ def process_many_files(
         db_name: str, 
         common_output_dir: str):
     """
+    given a list of files, process them one at a time. Gather the files written 
+    during processing and return that list. 
+
+    PARAMETERS
+    ----------
+        file_path_list
+            list of strings or pathlib.Path objs, assumed to be associated with
+            gzipped EMBL/GenBank flat files. 
+        database_params 
+            dict or configparser.ConfigParser obj. necessary keys or 
+            attributes are "user", "password", "host", "port"
+        db_name
+            string, name of the EFI database to be used to perform
+            queries. 
+        common_output_dir
+            string, local or global path within which result files will be 
+            written.
+
+    RETURNS
+    -------
+        "process_many_files"
+            string used to ID type of task
+        tab_files
+            list of strings corresponding to the tsv files written during the
+            tawk
+        `time.time() - st`
+            elapsed time for this task, units: seconds
+        file_path_list
+            same as given input
+
     """
     st = time.time()
     task_uuid = uuid.uuid4()
@@ -94,6 +124,8 @@ def process_many_files(
     tab_files = []
     for file_ in file_path_list:
         start_time = time.time()
+        # instead use regex to parse the file name so that the path of parsed
+        # file can be recreated for the output file name
         fn_name = Path(file_).name.split('.')[0]
         tab_file = parse_embl.process_file(file_, db_connection, out_dir + f"/{fn_name}.tab")
         stop_time = time.time()
