@@ -5,8 +5,6 @@ import gzip
 import re
 import os
 
-import uuid
-
 import parse_embl
 
 ###############################################################################
@@ -113,23 +111,44 @@ def process_many_files(
 
     """
     st = time.time()
-    task_uuid = uuid.uuid4()
-    #task_uuid = uuid.uuid1()
-    out_dir = common_output_dir + f"/{task_uuid}"
+    # use regex to match the parent directories' names; three layers worth if
+    # in `wgs` tree of ENA or two layers worth if in `sequences` tree. This
+    # regex will match a file path string, creating a list of a tuple with len
+    # 7. First four elements are associated with the wgs tree, the remaining
+    # with the sequences tree. 
+    # assume that all files in the file_path_list are sourced from the same
+    # directory
+    # THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
+    dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequences)\/(\w*)")
+    # use regex to match the file name stem from the given file path; will 
+    # create a list of a tuple with len 1. 
+    file_pattern= re.compile(r"\/(\w*)\.dat\.gz")
+
+    # only grab groups that were successfully matched. 
+    matches = [elem for elem in dir_pattern.findall(file_path_list[0]) if elem]
+    # create an output_dir string that easily maps to the files being parsed
+    if common_output_dir[-1] != "/":
+        common_output_dir += "/"
+    out_dir = common_output_dir + "-".join(matches)
+    # make the directory
     os.makedirs(out_dir)
    
     # connect to the database
     db_connection = IDMapper(database_params,db_name)
 
     tab_files = []
-    for file_ in file_path_list:
+    for file_path in file_path_list:
         start_time = time.time()
-        # instead use regex to parse the file name so that the path of parsed
-        # file can be recreated for the output file name
-        fn_name = Path(file_).name.split('.')[0]
-        tab_file = parse_embl.process_file(file_, db_connection, out_dir + f"/{fn_name}.tab")
+        # grab the stem of the file name to use in writing results
+        fn_name = file_pattern.findall(file_path)
+        # process the file
+        tab_file = parse_embl.process_file(
+            file_path, 
+            db_connection, 
+            out_dir + f"/{fn_name}.tab"
+        )
         stop_time = time.time()
-        # if the file_ does not return tab results, no file will be written
+        # if the file does not return any tab results, no file will be written
         if os.path.isfile(out_dir + f"/{fn_name}.tab"):
             tab_files.append(tab_file)
     
