@@ -5,6 +5,7 @@ import gzip
 import re
 import os
 
+import mysql_database
 import parse_embl
 
 ###############################################################################
@@ -121,26 +122,26 @@ def process_many_files(
     # THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
     dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequences)\/(\w*)")
     # use regex to match the file name stem from the given file path; will 
-    # create a list of a tuple with len 1. 
+    # create a list of len 1. 
     file_pattern= re.compile(r"\/(\w*)\.dat\.gz")
 
     # only grab groups that were successfully matched. 
-    matches = [elem for elem in dir_pattern.findall(file_path_list[0]) if elem]
+    matches = [elem for elem in dir_pattern.findall(file_path_list[0])[0] if elem]
     # create an output_dir string that easily maps to the files being parsed
     if common_output_dir[-1] != "/":
         common_output_dir += "/"
     out_dir = common_output_dir + "-".join(matches)
     # make the directory
-    os.makedirs(out_dir)
+    os.makedirs(out_dir,exist_ok=True)
    
     # connect to the database
-    db_connection = IDMapper(database_params,db_name)
+    db_connection = mysql_database.IDMapper(database_params,db_name)
 
     tab_files = []
     for file_path in file_path_list:
         start_time = time.time()
         # grab the stem of the file name to use in writing results
-        fn_name = file_pattern.findall(file_path)
+        fn_name = file_pattern.findall(file_path)[0]
         # process the file
         tab_file = parse_embl.process_file(
             file_path, 
