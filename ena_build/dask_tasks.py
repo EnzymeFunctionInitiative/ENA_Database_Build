@@ -63,12 +63,13 @@ def glob_files(dir_path: str) -> tuple:
     files = glob.glob(dir_path + f"/*dat.gz")
     
     # only a subset of data files in the ENA sequence/ subdir are of interest 
-    # to us.
+    # to us. As far as I know, the second underscored section of the file name
+    # denote the origin species type, which is what we need to consider.
     # THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
     if "sequence" in dir_path:
-        pattern = re.compile(r".*(ENV|PRO|FUN|PHG).*")
-        # NOTE: regex to only gather file names with (ENV|PRO|FUN|PHG)
-        files = [file_ for file_ in files if pattern.match(file_)]
+        # NOTE: regex to only gather file names with (ENV|PRO|FUN|PHG) in them
+        pattern = re.compile(r"_(ENV|PRO|FUN|PHG)_")
+        files = [file_ for file_ in files if pattern.search(file_)]
 
     return "glob_files", files, time.time() - st, dir_path
     #return [(file_name, os.path.getsize(file_name)) for file_name in glob.glob(dir_path + f"/{search_string}")]
@@ -113,14 +114,14 @@ def process_many_files(
     """
     st = time.time()
     # use regex to match the parent directories' names; three layers worth if
-    # in `wgs` tree of ENA or two layers worth if in `sequences` tree. This
+    # in `wgs` tree of ENA or two layers worth if in `sequence` tree. This
     # regex will match a file path string, creating a list of a tuple with len
     # 7. First four elements are associated with the wgs tree, the remaining
-    # with the sequences tree. 
+    # with the sequence tree. 
     # assume that all files in the file_path_list are sourced from the same
     # directory
     # THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
-    dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequences)\/(\w*)")
+    dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequence)\/(\w*)")
     # use regex to match the file name stem from the given file path; will 
     # create a list of len 1. 
     file_pattern= re.compile(r"\/(\w*)\.dat\.gz")
