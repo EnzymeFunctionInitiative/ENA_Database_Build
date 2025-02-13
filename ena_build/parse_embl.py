@@ -33,18 +33,6 @@ def process_file(
             results were found, this file will not actually be written so a 
             check for its existence outside of this function is necessary
     """
-    # create the dict to be used to gather all parsing results
-    process_results = {}
-    # initialize vars used to gather info
-    ID  = ""
-    uniprotIds = []
-    proteinIds = []
-    count = 0
-    CHR = ""
-    DIR = -9999
-    START = 0
-    END   = 0
-
     # create the regex search strings before hand to improve efficiency of doing
     # the regex searches on each line of the file(s).
     search_strs = [
@@ -71,26 +59,47 @@ def process_file(
     # will return an empty list. 
     cds_pattern = re.compile(r"(\d+)\..*\.\>?(\d+)")
 
+    # create the dict to be used to gather all parsing results
+    process_results = {}
+    # instantiate vars to be filled; 
+    ID = ""
+    uniprotIds = []
+    proteinIds = []
+    count = 0
+    CHR = 0
+    DIR = 0
+    START = 0
+    END = 0
+
     # open and read the gzipped file
     with gzip.open(file_path, 'rt') as f:
         # loop over each line in f without reading the whole file
         for line in f: 
             # apply the search regex on line
             search_results = search_pattern.findall(line)
-            # if the line matches the regex pattern, parse it some more, else
-            # move on to the next line
-            if search_results:
-                # turn search_results into the tuple of len 4
-                search_results = search_results[0]
-                
-                # regex search found a new ENA Accession ID and DNA/chromosome
-                # type
-                if search_results[0] and search_results[1]:
-                    
-                    # before the new ID can be processed, add the previous 
-                    # ID's results to the results dict.
-                    # this will create one false entry at the start of the file
-                    process_results[ID] = {
+            
+            # if the line does not match the regex pattern, move on to the 
+            # next line
+            if not search_results:
+                continue
+            
+            # the line does match the regex pattern
+            # turn search_results into the tuple of len 4
+            search_results = search_results[0]
+            
+            # regex search found a new ENA Accession ID and DNA/chromosome
+            # type
+            if search_results[0] and search_results[1]:
+                # need to handle the previous entry's data
+                # check that the last count value hasn't been added to the
+                # previous ID's subdir AND count != 0
+                if (count not in process_results[ID].keys() 
+                        and count
+                        and START
+                        and END):
+                    # the results for the file's last ID need to be added
+                    # to the process_results dict
+                    process_results[ID][count] = {
                         "uniprotIds": uniprotIds,
                         "proteinIds": proteinIds,
                         "seqcount": count,
@@ -99,111 +108,137 @@ def process_file(
                         "START": START,
                         "END": END,
                     }
-
-                    # search_results[0] is the ENA Accession ID
-                    ID = search_results[0]
-                    # search_results[1] is the type of chromosome structure, 
-                    # linear or circular
-                    if search_results[1] in ["linear","circular"]:
-                        # check if the type is either linear or circular
-                        CHR = 1 if search_results[1] == "linear" else 0
-                    #elif search_results[1] == "XXX":
-                    #    print(f"!!! figure out what to do for {file_path}: {line}")
-                    else:
-                        print(f"!!! Unknown chromosome type observed in {file_path}: {line}")
-                        # by replacing ID with empty string, we are effectively
-                        # ignoring unexpected chromosome type strings; we'll 
-                        # remove the "" key from the dict in the end
-                        ID = ""
-                    
-                    # re-initialize variables as empty to be filled with 
-                    # information
+                    # empty the lists and reassign values
                     uniprotIds = []
                     proteinIds = []
-                    count = 0
-                    DIR = -9999
                     START = 0
                     END = 0
-           
-                # regex search found a protein_id line
-                elif search_results[2]:
-                    proteinIds.append(search_results[2])
+                    CHR = 0
+                    DIR = 0
+                    count = 0
 
-                # regex search found a UniProtKB line
-                elif search_results[3]:
-                    uniprotIds.append(search_results[3])
-                
-                # regex search matched but tuple is filled with empties, must 
-                # have found a "FT   CDS" line
+                # now handle the new line's data
+                # search_results[0] is the ENA Accession ID
+                ID = search_results[0]
+                # search_results[1] is the type of chromosome structure, 
+                # linear or circular; there are some non-standard 
+                # structures
+                if search_results[1] in ["linear","circular"]:
+                    # check if the type is either linear or circular
+                    CHR = 1 if search_results[1] == "linear" else 0
                 else:
-                    # if the list of uniportIds is occupied and ints START and 
-                    # END are non-zero, then we're done processing CDS lines. 
-                    # We can skip to the next line and keep doing so until we 
-                    # hit a new "ID" line.
-                    if uniprotIds and START and END:
-                        continue
-                    
-                    # add one to the sequence count
-                    # should this be before the above boolean check? 
-                    count += 1
+                    print(f"!!! Unknown chromosome type observed in {file_path}: {line}")
+                    # by replacing ID with an empty string, we are 
+                    # effectively ignoring unexpected chromosome type 
+                    # strings; we'll remove the "" key from the dict in
+                    # the end
+                    ID = ""
+                
+                # create the dict entry in process_results, key being the
+                # ENA accession ID and value being a dict
+                process_results[ID] = {}
+                # this subdict will be filled with CDS entries, keys being
+                # the count and values being dict of "uniprotIDs", 
+                # "proteinIDs", "CHR", "DIR", "START", and "END"
+                count = 0   # haven't found any CDS yet
 
-                    # determine the directionality of the encoding sequence
-                    # can "FT   CDS" lines have different directionality? 
-                    # should we check to see if DIR has already been assigned a 
-                    # value?
-                    if "complement" in line:
-                        DIR = 0
-                    else:
-                        DIR = 1
+            # regex search found a protein_id line
+            elif search_results[2]:
+                proteinIds.append(search_results[2])
 
-                    # check for start and stop values for the sequence
-                    cds_matches = cds_pattern.findall(line)
-                    if cds_matches:
-                        # as above, should we check to see if START and END 
-                        # have been assigned a non-zero value already?
-                        START, END = cds_matches[0]
+            # regex search found a UniProtKB line
+            elif search_results[3]:
+                uniprotIds.append(search_results[3])
+            
+            # regex search matched but tuple is filled with empties, must 
+            # have found a "FT   CDS" line
+            else:
+                # if the list of uniportIds is occupied and ints START and
+                # END are non-zero, then we've found a new CDS line after
+                # already having collected the previous CDS's results. 
+                if (count not in process_results[ID].keys() 
+                        and count
+                        and START
+                        and END):
+                    # create the associated subdict to the ID's dict
+                    process_results[ID][count] = {
+                        "uniprotIds": uniprotIds,
+                        "proteinIds": proteinIds,
+                        "seqcount": count,
+                        "CHR": CHR,
+                        "DIR": DIR,
+                        "START": START,
+                        "END": END,
+                    }
+                    # empty the lists
+                    uniprotIds = []
+                    proteinIds = []
+                
+                # found a CDS line denoting a coding sequence, add one to
+                # the sequence count
+                count += 1
 
-    # before moving on, the results for the file's last ID need to be added to 
-    # the process_results dict
-    process_results[ID] = {
-        "uniprotIds": uniprotIds,
-        "proteinIds": proteinIds,
-        "seqcount": count,
-        "CHR": CHR,
-        "DIR": DIR,
-        "START": START,
-        "END": END,
-    }
+                # determine the directionality of the CDS
+                if "complement" in line:
+                    DIR = 0
+                else:
+                    DIR = 1
 
-    # remove that first false entry before finishing
-    process_results.pop("")
+                # find the start and stop values for the sequence
+                START, END = cds_pattern.findall(line)[0]
+
+    # check that the last count value hasn't been added to the 
+    # process_results[ID] subdir AND count != 0
+    if (count not in process_results[ID].keys() 
+            and count
+            and START
+            and END):
+        # the results for the file's last ID need to be added to 
+        # the process_results dict
+        process_results[ID][count] = {
+            "uniprotIds": uniprotIds,
+            "proteinIds": proteinIds,
+            "seqcount": count,
+            "CHR": CHR,
+            "DIR": DIR,
+            "START": START,
+            "END": END,
+        }
+
+    # remove the false entry subdict if it exists
+    if "" in process_results.keys():
+        process_results.pop("")
    
     ## past version of code did not use processed_already
     #processed_already = {}
 
     # now do the reverseLookup against the SQL database
-    # loop over each key in the process_results dict and consider the proteinIds 
+    # loop over each key in the process_results dict, loop over loci 
+    # associated with that ena_id, and consider the proteinIds 
     # list as foreign_ids in a IDMapper.reverse_lookup call
     for ena_id in process_results.keys():
-        # perform the reverse lookup
-        rev_uniprot_ids, no_match = database_connection.reverse_lookup(process_results[ena_id]["proteinIds"])
-        
-        ## filter rev_uniprot_ids to only include Ids not already in processed_already
-        #rev_uniprot_ids_to_add = [uniprot_id for uniprot_id in rev_uniprot_ids if uniprot_id not in processed_already]
-        
-        # check whether the rev_uniprot_ids set is empty
-        if not rev_uniprot_ids:
-            # if it is empty, use the process_results[ena_id]["uniprotIds"] 
-            # list; maybe should be the combined set of the two lists?
-            uniprot_ids = process_results[ena_id]["uniprotIds"]
-        else:
-            uniprot_ids = rev_uniprot_ids
-        
-        # loop over uniprot_ids and append to file. If uniprot_ids is empty, no
-        # file is written.
-        for id_ in uniprot_ids:
-            with open(output_file,"a") as out_tab:
-                out_tab.write(f"{ena_id}\t{id_}\t{process_results[ena_id]['seqcount']}\t{process_results[ena_id]['CHR']}\t{process_results[ena_id]['DIR']}\t{process_results[ena_id]['START']}\t{process_results[ena_id]['END']}\n")
+        for loci in process_results[ena_id].keys():
+            loci_subdict = process_results[ena_id][loci]
+            # perform the reverse lookup
+            rev_uniprot_ids, no_match = database_connection.reverse_lookup(loci_subdict["proteinIds"])
+            
+            ## filter rev_uniprot_ids to only include Ids not already in processed_already
+            #rev_uniprot_ids_to_add = [uniprot_id for uniprot_id in rev_uniprot_ids if uniprot_id not in processed_already]
+            
+            # check whether the rev_uniprot_ids set is empty
+            if not rev_uniprot_ids:
+                # if it is empty, use the 
+                # process_results[ena_id][loci]["uniprotIds"] list; maybe 
+                # should be the combined set of the two lists?
+                uniprot_ids = loci_subdict["uniprotIds"]
+            else:
+                uniprot_ids = rev_uniprot_ids
+            
+            # loop over uniprot_ids and append to file. If uniprot_ids is
+            # empty, no file is written.
+            for id_ in uniprot_ids:
+                with open(output_file,"a") as out_tab:
+                    out_tab.write(f"{ena_id}\t{id_}\t{loci_subdict['seqcount']}\t{loci_subdict['CHR']}\t{loci_subdict['DIR']}\t{loci_subdict['START']}\t{loci_subdict['END']}\n")
 
     return output_file
 
