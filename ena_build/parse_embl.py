@@ -179,7 +179,9 @@ def process_file(
                     DIR = 1
 
                 # find the start and stop values for the sequence
-                START, END = cds_pattern.findall(line)[0]
+                cds_result = cds_pattern.findall(line)
+                if cds_result:
+                    START, END = cds_result[0]
 
     # check that the last count value hasn't been added to the 
     # process_results[ID] subdir AND count != 0
