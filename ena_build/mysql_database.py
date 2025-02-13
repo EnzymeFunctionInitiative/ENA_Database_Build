@@ -119,9 +119,9 @@ class IDMapper:
             # loop over rows in the query results
             for row in batch:
                 # add the row's (uniprot_id,foreign_id) mapping to the list
-                mapping.append((row['uniprot_id'],row['foreign_id')])
+                mapping.append((row["uniprot_id"],row["foreign_id"]))
                 # remove the foreign_id from the no_matches list
-                no_matches.discard(row['foreign_id'])
+                no_matches.discard(row["foreign_id"])
         
         # end cursor instances to keep dbh connections minimal
         cursor.close()
