@@ -71,6 +71,9 @@ def process_file(
     START = 0
     END = 0
 
+    # gather all proteinIds to do the mysql query quickly
+    all_proteinIds = []
+
     # open and read the gzipped file
     with gzip.open(file_path, 'rt') as f:
         # loop over each line in f without reading the whole file
@@ -142,6 +145,7 @@ def process_file(
             # regex search found a protein_id line
             elif search_results[2]:
                 proteinIds.append(search_results[2])
+                all_proteinIds.append(search_results[2])
 
             # regex search found a UniProtKB line
             elif search_results[3]:
@@ -202,21 +206,34 @@ def process_file(
     if "" in process_results.keys():
         process_results.pop("")
    
-    ## past version of code did not use processed_already
-    #processed_already = {}
+    # now do one large reverseLookup against the SQL database
+    # all_proteinIds contains every foreignId found in the EMBL file, so 
+    # rev_mapping will contain tuples of the mapping btw UniProt Accession Ids 
+    # and associated "foreignId". no_match will contain any foreignId that does 
+    # not map to a UniProtId; we ignore those.
+    rev_mapping, no_match = database_connection.reverse_lookup(set(all_proteinIds))
 
-    # now do the reverseLookup against the SQL database
-    # loop over each key in the process_results dict, loop over loci 
-    # associated with that ena_id, and consider the proteinIds 
-    # list as foreign_ids in a IDMapper.reverse_lookup call
+    # loop over each ena_id key in the process_results dict, loop over each loci
+    # associated with that ena_id, and consider the uniProtIds and proteinIds 
+    # lists. 
     for ena_id in process_results.keys():
         for loci in process_results[ena_id].keys():
             loci_subdict = process_results[ena_id][loci]
             # perform the reverse lookup
-            rev_uniprot_ids, no_match = database_connection.reverse_lookup(loci_subdict["proteinIds"])
+            #rev_uniprot_ids, no_match = database_connection.reverse_lookup(loci_subdict["proteinIds"])
             
-            ## filter rev_uniprot_ids to only include Ids not already in processed_already
-            #rev_uniprot_ids_to_add = [uniprot_id for uniprot_id in rev_uniprot_ids if uniprot_id not in processed_already]
+            # a loci should only ever have one "protein_id" line, still handle 
+            # the loci_subdict['proteinIds'] as if it can be large...
+            # this sums over a list of booleans. zeros for each False and 1 for
+            # each True.
+            matched = sum([proteinId in no_match for proteinId in loci_subdict['proteinIds']])
+            # check if the loci was not found in the reverseLookup and does not
+            # include any uniprotIds found during file parsing
+            if not matched and not len(loci_subdict["uniprotIds"]):
+                continue
+
+            # grab uniprot_ids found via reverseLookup that map to the loci's protein_id
+            rev_uniprot_ids = set([uniprot_id for uniprot_id, foreign_id in rev_mapping if foreign_id in loci_subdict['proteinIds']])
             
             # check whether the rev_uniprot_ids set is empty
             if not rev_uniprot_ids:
@@ -228,7 +245,7 @@ def process_file(
                 uniprot_ids = rev_uniprot_ids
             
             # loop over uniprot_ids and append to file. If uniprot_ids is
-            # empty, no file is written.
+            # empty, file is not written to.
             for id_ in uniprot_ids:
                 with open(output_file,"a") as out_tab:
                     out_tab.write(f"{ena_id}\t{id_}\t{loci_subdict['seqcount']}\t{loci_subdict['CHR']}\t{loci_subdict['DIR']}\t{loci_subdict['START']}\t{loci_subdict['END']}\n")

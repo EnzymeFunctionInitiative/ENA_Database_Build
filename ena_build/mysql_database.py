@@ -66,9 +66,10 @@ class IDMapper:
 
         Returns
         -------
-            uniprot_ids
-                set of strings, UniProtKB accession IDs that map to one of the
-                input foreign_ids
+            mapping
+                list of tuples of len 2, each element is the mapping btw a 
+                UniProtKB accession ID and the associated foreign_id found in
+                the connected database. 
             no_matches
                 set of strings, foreign_ids from input that do not map to a 
                 UniProtKB accession ID in the database.
@@ -98,7 +99,7 @@ class IDMapper:
         
         # prep the output arrays. will add found uniprot_ids to that list and
         # will remove the associated foreign_id from the no_matches list.
-        uniprot_ids = []
+        mapping = []
         no_matches = set(foreign_ids)
 
         # instead of fetching results one or all at a time, let's grab a batch
@@ -117,17 +118,14 @@ class IDMapper:
             
             # loop over rows in the query results
             for row in batch:
-                # add the uniprot_id to the list
-                uniprot_ids.append(row['uniprot_id'])
+                # add the row's (uniprot_id,foreign_id) mapping to the list
+                mapping.append((row['uniprot_id'],row['foreign_id')])
                 # remove the foreign_id from the no_matches list
                 no_matches.discard(row['foreign_id'])
         
         # end cursor instances to keep dbh connections minimal
         cursor.close()
         
-        # convert uniprot_ids list to a set to remove renundant entries. this
-        # is likely faster than instantiating uniprot_ids as a set for
-        # instances where uniprot_ids becomes large.
-        return set(uniprot_ids), no_matches
+        return mapping, no_matches
 
 
