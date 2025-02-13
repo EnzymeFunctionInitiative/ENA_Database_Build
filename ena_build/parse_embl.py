@@ -211,7 +211,7 @@ def process_file(
     # rev_mapping will contain tuples of the mapping btw UniProt Accession Ids 
     # and associated "foreignId". no_match will contain any foreignId that does 
     # not map to a UniProtId; we ignore those.
-    rev_mapping, no_match = database_connection.reverse_lookup(set(all_proteinIds))
+    rev_mapping, no_match = database_connection.reverse_lookup(list(set(all_proteinIds)))
 
     # loop over each ena_id key in the process_results dict, loop over each loci
     # associated with that ena_id, and consider the uniProtIds and proteinIds 
