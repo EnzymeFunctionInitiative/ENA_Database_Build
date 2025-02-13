@@ -93,10 +93,7 @@ def process_file(
                 # need to handle the previous entry's data
                 # check that the last count value hasn't been added to the
                 # previous ID's subdir AND count != 0
-                if (count not in process_results[ID].keys() 
-                        and count
-                        and START
-                        and END):
+                if count and START and END:
                     # the results for the file's last ID need to be added
                     # to the process_results dict
                     process_results[ID][count] = {
@@ -156,10 +153,7 @@ def process_file(
                 # if the list of uniportIds is occupied and ints START and
                 # END are non-zero, then we've found a new CDS line after
                 # already having collected the previous CDS's results. 
-                if (count not in process_results[ID].keys() 
-                        and count
-                        and START
-                        and END):
+                if count and START and END:
                     # create the associated subdict to the ID's dict
                     process_results[ID][count] = {
                         "uniprotIds": uniprotIds,
@@ -189,10 +183,7 @@ def process_file(
 
     # check that the last count value hasn't been added to the 
     # process_results[ID] subdir AND count != 0
-    if (count not in process_results[ID].keys() 
-            and count
-            and START
-            and END):
+    if count and START and END:
         # the results for the file's last ID need to be added to 
         # the process_results dict
         process_results[ID][count] = {
