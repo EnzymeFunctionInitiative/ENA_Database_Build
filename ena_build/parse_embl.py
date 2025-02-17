@@ -8,14 +8,46 @@ import gzip
 
 class Record():
     def __init__(self, ID: str, CHR: int):
-        """
+        """ 
+        Instantiate a Record object for a new chromosome block in an EMBL flat 
+        file
+
+        PARAMETERS
+        ----------
+            ID
+                str, EMBL/ENA accession ID for the chromosome
+            CHR
+                int, 0 if chromosome structure/type is "linear" or 1 if 
+                "circular"
+
+        ATTRIBUTES
+        ----------
+            ID
+                str, EMBL/ENA accession ID for the chromosome
+            CHR
+                int, 0 if chromosome structure/type is "linear" or 1 if 
+                "circular"
+            count
+                incremented count attribute to denote CDS locus position in the
+                chromosome
+            uniprotIds
+                set of unique UniProt Accession Ids associated with CDS loci 
+            proteinIds
+                set of unique "foreign" protein Ids associated with CDS loci
+            loci_dict and current_locus
+                dicts that will contain information for all and current CDS
+                loci associated with the chromosome, respectively.
+                - keys in loci_dict will be the locus' count value with values
+                  being a subdict with "DIR", "START", "END", "uniprotIds", and
+                  "proteinIds" keys and associated values for the locus.
+
         """
         self.ENA_ID = ID
         self.CHR: CHR,
         self.count: 0,
         self.uniprotIds: set(),
         self.proteinIds: set(),
-        # this subdict will be filled with CDS entries, keys being the count 
+        # these two dicts will be filled with CDS entries, keys being the count
         # and values being dict of "uniprotIDs", "proteinIDs", "DIR", "START",
         # and "END"
         self.loci_dict = {}
@@ -27,8 +59,16 @@ class Record():
             "END": 0,
         }
 
-    def add_locus(locus_id):
+    def add_locus(self, locus_id):
         """
+        Add the current locus' dict to the chromosome's loci_dict then refresh
+        the current_locus dict
+        
+        PARAMETERS
+        ----------
+            locus_id
+                str or int, used as the key in self.loci_dict that maps to the
+                current_locus subdict.
         """
         self.loci_dict[locus_id] = self.current_locus
         self.current_locus = {
@@ -39,19 +79,35 @@ class Record():
             "END": 0,
         }
 
-    def process_record(last_locus, db_cnx, output_file):
+    def process_record(self, last_locus, db_cnx, output_file):
         """
+        given a Record object, do one final check for adding a locus then 
+        process the loci in the Record object, writing info associated with 
+        any loci that are associated with a UniProtId out to a tab separated
+        file
+
+        PARAMETERS
+        ----------
+            last_locus
+                str or int, used as the key in self.loci_dict that maps to the
+                current_locus subdict.
+            db_cnx
+                mysql_database.IDMapper connection object
+            output_file
+                string or pathlib.Path, file to be written with results from the
+                function
+        
         """
         # check to see if the last_locus is not a key in the Record's loci_dict
-        # as well as that locus' START, END, and proteinIds set values are 
-        # equivalent to True
+        # as well as that locus' START, END, and DIR values are different from
+        # the default/starting values
         if (last_locus not in self.loci_dict.keys()
                 and self.current_locus["START"]
                 and self.current_locus["END"]
-                and self.current_locus["proteinIds"]):
+                and self.current_locus["DIR"] >= 0):
             self.add_locus(last_locus)
         
-        # loop over each locus in the Record object, doing a reverseLookup on
+        # loop over each locus in the Record object, doing a reverse_lookup on
         # the locus' proteinIds to gather any uniprotIds. Write to file if the
         # locus has an associated uniprotId.
         for locus in self.loci_dict.keys():
@@ -105,25 +161,30 @@ def process_file(
             results were found, this file will not actually be written so a 
             check for its existence outside of this function is necessary
     """
-    # create the regex search strings before hand to improve efficiency of doing
-    # the regex searches on each line of the file(s).
+    # create the regex search strings before hand to improve efficiency of
+    # doing the regex searches on lines of the file(s).
+    # search for "protein_id" FT lines, group 0 maps to the foreign ID string. 
+    # search for UniProtKB/... database accession ID lines, group 1 matches the
+    # associated accession ID. 
     search_strs = [
-        r"(?:^ID\s+(\w+);\s\w\w\s\w;\s(\w+);\s.*)", # search for ID lines, group 0 and 1 map to ID and type of genome (circular or linear);
-        r'(?:^FT\s+\/protein_id=\"([a-zA-Z0-9\.]+)\")', # search for "protein_id" FT lines, group 2 maps to the quoted ID. 
-        r'(?:^FT\s+\/db_xref=\"UniProtKB\/[a-zA-Z0-9-]+:(\w+)\")',  # search for UniProtKB/... database accession ID lines, group 3 matches the associated accession ID. 
-        r"(?:^FT   CDS\s+)"    # search for "FT   CDS" lines
+        r'(?:^FT\s+\/protein_id=\"([a-zA-Z0-9\.]+)\")', 
+        r'(?:^FT\s+\/db_xref=\"UniProtKB\/[a-zA-Z0-9-]+:(\w+)\")'
     ]
     
     # compile the combined search pattern.
     # for each line that successfully matches one of the search strings, a list
-    # of one tuple of len 4 will be created. The zeroth element of the tuple
-    # maps to the ENA ID. First maps to the type of genome. Second maps to a
-    # protein_id string. And third maps to a UniProtKB accession ID. Depending 
-    # on which line is matched, some or all of these elements could be empty
-    # strings _but_ the tuple will always be len 4. If the line does not match
-    # any search strings, then an empty list will be returned. 
+    # of one tuple of len 2 will be created. The zeroth element of the tuple
+    # maps to a protein_id string and the first maps to a UniProtKB accession 
+    # ID. Depending on which line is matched, some or all of these elements 
+    # could be empty strings _but_ the tuple will always be len 2. If the line 
+    # does not match any search strings, then an empty list will be returned. 
     search_pattern = re.compile("|".join(search_strs))
-   
+  
+    # create the "ID " search pattern.
+    # search for ID lines, group 0 and 1 map to ID and type of chromosome
+    # structure (circular or linear or nonstandard strings like XXX);
+    id_pattern = re.compile(r"(?:^ID\s+(\w+);\s\w\w\s\w;\s(\w+);\s.*)") 
+
     # create the "FT   CDS" search pattern. 
     # If the line matches this search string, then the a list of a tuple of 
     # len 2 will be returned. The zeroth and first elements will be the START
@@ -138,20 +199,13 @@ def process_file(
     with gzip.open(file_path, 'rt') as f:
         # loop over each line in f without reading the whole file
         for line in f: 
-            # apply the search regex on line
-            search_results = search_pattern.findall(line)
-            
-            # if the line does not match the regex pattern, move on to the 
-            # next line
-            if not search_results:
+            # check for lines that do not start with "FT   " nor "ID   "
+            # we currently don't do anything with those lines so just move on
+            if not line.startswith(("FT   ", "ID   ")):
                 continue
-            
-            # the line does match the regex pattern
-            # turn search_results into the tuple of len 4
-            search_results = search_results[0]
-            
-            # regex search found a new ENA ID line
-            if search_results[0] and search_results[1]:
+
+            # check for "ID" lines
+            elif line.startswith("ID   "):
                 
                 # need to handle the previous Record's data
                 enaRecord.process_record(
@@ -159,48 +213,41 @@ def process_file(
                     database_connection,
                     output_file
                 )
-                    
-                # now handle the new line's data
-                # search_results[0] is the ENA Accession ID
-                ID = search_results[0]
                 
-                # search_results[1] is the type of chromosome structure, lienar 
-                # or circular; there are some non-standard structures
-                if search_results[1] in ["linear","circular"]:
+                # parse ID line using regex to get groups
+                # group 0 is the ENA ID, group 1 is the chromosome structure 
+                # type
+                ID, CHR = id_pattern.findall(line)[0]
+
+                # CHR is the type of chromosome structure, linear or circular; 
+                # there are some non-standard structures, skip those.
+                if CHR in ["linear","circular"]:
                     # check if the type is either linear or circular
-                    CHR = 1 if search_results[1] == "linear" else 0
+                    CHR = 1 if CHR == "linear" else 0
                 else:
                     print(f"!!! Unknown chromosome type observed in {file_path}: {line}")
-                    # by replacing ID with an empty string, we are 
-                    # effectively ignoring unexpected chromosome type 
-                    # strings; we'll remove the "" key from the dict in
-                    # the end
+                    # by replacing ID with an empty string, we are effectively 
+                    # ignoring unexpected chromosome type strings; we'll
+                    # ignore the "" ID string in the Record.process_record()
+                    # method
                     ID = ""
                 
                 # create the new Record object, currently empty except for the 
                 # ID and CHR fields
                 enaRecord = Record(ID = ID, CHR = CHR)
-                    
-            # regex search found a protein_id line
-            elif search_results[2]:
-                enaRecord.proteinIds.add(search_results[2])
-                enaRecord.current_locus['proteinIds'].add(search_results[2])
+                continue
 
-            # regex search found a UniProtKB line
-            elif search_results[3]:
-                enaRecord.uniprotIds.add(search_results[3])
-                enaRecord.current_locus['uniprotIds'].add(search_results[3])
-            
-            # regex search matched but tuple is filled with empties, must 
-            # have found a "FT   CDS" line
-            else:
-                # if the current_locus' START and END values are non-zero and 
-                # the proteinIds set is not empty, then the current_locus dict 
-                # is filled with a previous CDS line's data. Stash this locus' 
-                # results into the Record's loci_dict
-                if (enaRecord.current_locus["START"] 
+            # check for new gene coding sequence blocks
+            elif line.startswith("FT   CDS "):
+                # if the count value is not already a key in the 
+                # Record.loci_dict and the current_locus' START and END values 
+                # are non-zero and the DIR value is not the default, then the 
+                # current_locus dict is filled with a previous CDS line's data. 
+                # Stash this locus' results into the Record's loci_dict.
+                if (count not in enaRecord.loci_dict.keys()
+                        and enaRecord.current_locus["START"]
                         and enaRecord.current_locus["END"]
-                        and enaRecord.current_locus["proteinIds"]):
+                        and enaRecord.current_locus["DIR"] >= 0):
                     # add the current_locus dict to the full loci_dict, using
                     # the count integer as the key
                     enaRecord.add_locus(count)
@@ -223,12 +270,25 @@ def process_file(
                     enaRecord.current_locus["START"] = int(START)
                     enaRecord.current_locus["END"] = int(END)
                 
+                continue
+            
+            # now we need to consider the diverse set of "FT\s+" formatted lines
+            # regex still feels like the fastest way to check for the lines that
+            # match the search patterns
+            search_results = search_pattern.findall(line)
+            if search_results:
+                uniprotId, proteinId = search_results[0]
+                # one or the other will be an empty string since no FT lines
+                # contain both uniprot or protein IDs
+                if uniprotID:
+                    enaRecord.uniprotIds.add(uniprotId)
+                    enaRecord.current_locus['uniprotIds'].add(uniprotId)
+                elif proteinId:
+                    enaRecord.proteinIds.add(proteinId)
+                    enaRecord.current_locus['proteinIds'].add(proteinId)
+ 
     # done parsing file, but haven't finished parsing the last Record object
-    enaRecord.process_record(
-        count,
-        database_connection,
-        output_file
-    )
+    enaRecord.process_record(count, database_connection, output_file)
     
     return output_file
 
