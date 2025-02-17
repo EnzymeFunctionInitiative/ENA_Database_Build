@@ -6,14 +6,86 @@ import gzip
 # Parsing an EMBL flat file
 ###############################################################################
 
+class Record():
+    def __init__(self, ID: str, CHR: int):
+        """
+        """
+        self.ENA_ID = ID
+        self.CHR: CHR,
+        self.count: 0,
+        self.uniprotIds: set(),
+        self.proteinIds: set(),
+        # this subdict will be filled with CDS entries, keys being the count 
+        # and values being dict of "uniprotIDs", "proteinIDs", "DIR", "START",
+        # and "END"
+        self.loci_dict = {}
+        self.current_locus = {
+            "uniprotIds": set(),
+            "proteinIds": set(),
+            "DIR": -9999,
+            "START": 0,
+            "END": 0,
+        }
+
+    def add_locus(locus_id):
+        """
+        """
+        self.loci_dict[locus_id] = self.current_locus
+        self.current_locus = {
+            "uniprotIds": set(),
+            "proteinIds": set(),
+            "DIR": -9999,
+            "START": 0,
+            "END": 0,
+        }
+
+    def process_record(last_locus, db_cnx, output_file):
+        """
+        """
+        # check to see if the last_locus is not a key in the Record's loci_dict
+        # as well as that locus' START, END, and proteinIds set values are 
+        # equivalent to True
+        if (last_locus not in self.loci_dict.keys()
+                and self.current_locus["START"]
+                and self.current_locus["END"]
+                and self.current_locus["proteinIds"]):
+            self.add_locus(last_locus)
+        
+        # loop over each locus in the Record object, doing a reverseLookup on
+        # the locus' proteinIds to gather any uniprotIds. Write to file if the
+        # locus has an associated uniprotId.
+        for locus in self.loci_dict.keys():
+            locus_subdict = self.loci_dict[locus]
+            # perform the reverse lookup
+            rev_uniprot_ids, no_match = db_cnx.reverse_lookup(
+                list(locus_subdict['proteinIds'])
+            )
+            # check whether the rev_uniprot_ids set is empty
+            if not rev_uniprot_ids:
+                # if it is empty, use the loci's uniprotIds value
+                # instead
+                # maybe should be the combined set of the two lists?
+                uniprot_ids = locus_subdict["uniprotIds"]
+            else:
+                uniprot_ids = rev_uniprot_ids
+        
+            # loop over uniprot IDs found via reverse lookup or during parsing
+            for id_ in uniprot_ids:
+                # append to output_file
+                with open(output_file, "a") as out_tab:
+                    out_tab.write(f"{self.ENA_ID}\t{id_}\t{locus}\t{self.CHR}\t{locus_subdict['DIR']}\t{locus_subdict['START']}\t{locus_subdict['END']}\n")
+
+
 def process_file(
         file_path: str, 
         database_connection,
         output_file: str):
     """
     read gzipped GenBank or EMBL file, loop over entries, search for lines 
-    specifying sequences and their EMBL IDs as well as Uniprot IDs and others 
-    (if available).
+    specifying chromosomes via the ID lines, then gather information for each
+    gene locus. Check if a gene lcous' proteinId(s) have been already mapped to
+    a UniprotID via a database reverse lookup. Write to output_file the
+    organization of the chromosome's gene loci.
 
     PARAMETERS
     ----------
@@ -39,7 +111,7 @@ def process_file(
         r"(?:^ID\s+(\w+);\s\w\w\s\w;\s(\w+);\s.*)", # search for ID lines, group 0 and 1 map to ID and type of genome (circular or linear);
         r'(?:^FT\s+\/protein_id=\"([a-zA-Z0-9\.]+)\")', # search for "protein_id" FT lines, group 2 maps to the quoted ID. 
         r'(?:^FT\s+\/db_xref=\"UniProtKB\/[a-zA-Z0-9-]+:(\w+)\")',  # search for UniProtKB/... database accession ID lines, group 3 matches the associated accession ID. 
-        r"(?:^FT\s+CDS)"    # search for "FT   CDS" lines, need to do boolean checks for the various lines following this pattern
+        r"(?:^FT   CDS\s+)"    # search for "FT   CDS" lines
     ]
     
     # compile the combined search pattern.
@@ -59,21 +131,9 @@ def process_file(
     # will return an empty list. 
     cds_pattern = re.compile(r"(\d+)\..*\.\>?(\d+)")
 
-    # create the dict to be used to gather all parsing results
-    process_results = {}
-    # instantiate vars to be filled; 
-    ID = ""
-    uniprotIds = []
-    proteinIds = []
-    count = 0
-    CHR = 0
-    DIR = 0
-    START = 0
-    END = 0
-
-    # gather all proteinIds to do the mysql query quickly
-    all_proteinIds = []
-
+    # create the first Record object that will be empty
+    enaRecord = Record(ID = "", CHR = 0)
+    
     # open and read the gzipped file
     with gzip.open(file_path, 'rt') as f:
         # loop over each line in f without reading the whole file
@@ -90,39 +150,22 @@ def process_file(
             # turn search_results into the tuple of len 4
             search_results = search_results[0]
             
-            # regex search found a new ENA Accession ID and DNA/chromosome
-            # type
+            # regex search found a new ENA ID line
             if search_results[0] and search_results[1]:
-                # need to handle the previous entry's data
-                # check that the last count value hasn't been added to the
-                # previous ID's subdir AND count != 0
-                if count and START and END:
-                    # the results for the file's last ID need to be added
-                    # to the process_results dict
-                    process_results[ID][count] = {
-                        "uniprotIds": uniprotIds,
-                        "proteinIds": proteinIds,
-                        "seqcount": count,
-                        "CHR": CHR,
-                        "DIR": DIR,
-                        "START": START,
-                        "END": END,
-                    }
-                    # empty the lists and reassign values
-                    uniprotIds = []
-                    proteinIds = []
-                    START = 0
-                    END = 0
-                    CHR = 0
-                    DIR = 0
-                    count = 0
-
+                
+                # need to handle the previous Record's data
+                enaRecord.process_record(
+                    count,
+                    database_connection,
+                    output_file
+                )
+                    
                 # now handle the new line's data
                 # search_results[0] is the ENA Accession ID
                 ID = search_results[0]
-                # search_results[1] is the type of chromosome structure, 
-                # linear or circular; there are some non-standard 
-                # structures
+                
+                # search_results[1] is the type of chromosome structure, lienar 
+                # or circular; there are some non-standard structures
                 if search_results[1] in ["linear","circular"]:
                     # check if the type is either linear or circular
                     CHR = 1 if search_results[1] == "linear" else 0
@@ -134,122 +177,59 @@ def process_file(
                     # the end
                     ID = ""
                 
-                # create the dict entry in process_results, key being the
-                # ENA accession ID and value being a dict
-                process_results[ID] = {}
-                # this subdict will be filled with CDS entries, keys being
-                # the count and values being dict of "uniprotIDs", 
-                # "proteinIDs", "CHR", "DIR", "START", and "END"
-                count = 0   # haven't found any CDS yet
-
+                # create the new Record object, currently empty except for the 
+                # ID and CHR fields
+                enaRecord = Record(ID = ID, CHR = CHR)
+                    
             # regex search found a protein_id line
             elif search_results[2]:
-                proteinIds.append(search_results[2])
-                all_proteinIds.append(search_results[2])
+                enaRecord.proteinIds.add(search_results[2])
+                enaRecord.current_locus['proteinIds'].add(search_results[2])
 
             # regex search found a UniProtKB line
             elif search_results[3]:
-                uniprotIds.append(search_results[3])
+                enaRecord.uniprotIds.add(search_results[3])
+                enaRecord.current_locus['uniprotIds'].add(search_results[3])
             
             # regex search matched but tuple is filled with empties, must 
             # have found a "FT   CDS" line
             else:
-                # if the list of uniportIds is occupied and ints START and
-                # END are non-zero, then we've found a new CDS line after
-                # already having collected the previous CDS's results. 
-                if count and START and END:
-                    # create the associated subdict to the ID's dict
-                    process_results[ID][count] = {
-                        "uniprotIds": uniprotIds,
-                        "proteinIds": proteinIds,
-                        "seqcount": count,
-                        "CHR": CHR,
-                        "DIR": DIR,
-                        "START": START,
-                        "END": END,
-                    }
-                    # empty the lists
-                    uniprotIds = []
-                    proteinIds = []
+                # if the current_locus' START and END values are non-zero and 
+                # the proteinIds set is not empty, then the current_locus dict 
+                # is filled with a previous CDS line's data. Stash this locus' 
+                # results into the Record's loci_dict
+                if (enaRecord.current_locus["START"] 
+                        and enaRecord.current_locus["END"]
+                        and enaRecord.current_locus["proteinIds"]):
+                    # add the current_locus dict to the full loci_dict, using
+                    # the count integer as the key
+                    enaRecord.add_locus(count)
+                    # add one to the count since we're moving on to the next 
+                    # locus
+                    count += 1
                 
-                # found a CDS line denoting a coding sequence, add one to
-                # the sequence count
-                count += 1
-
-                # determine the directionality of the CDS
-                if "complement" in line:
-                    DIR = 0
-                else:
-                    DIR = 1
-
-                # find the start and stop values for the sequence
+                # for the new locus:
+                # parse the CDS line to see if it fits the expected regex format
+                # find the start and stop values for the sequence as well as the
+                # directionality
                 cds_result = cds_pattern.findall(line)
                 if cds_result:
+                    # the two regex groups
                     START, END = cds_result[0]
-
-    # check that the last count value hasn't been added to the 
-    # process_results[ID] subdir AND count != 0
-    if count and START and END:
-        # the results for the file's last ID need to be added to 
-        # the process_results dict
-        process_results[ID][count] = {
-            "uniprotIds": uniprotIds,
-            "proteinIds": proteinIds,
-            "seqcount": count,
-            "CHR": CHR,
-            "DIR": DIR,
-            "START": START,
-            "END": END,
-        }
-
-    # remove the false entry subdict if it exists
-    if "" in process_results.keys():
-        process_results.pop("")
-   
-    # now do one large reverseLookup against the SQL database
-    # all_proteinIds contains every foreignId found in the EMBL file, so 
-    # rev_mapping will contain tuples of the mapping btw UniProt Accession Ids 
-    # and associated "foreignId". no_match will contain any foreignId that does 
-    # not map to a UniProtId; we ignore those.
-    rev_mapping, no_match = database_connection.reverse_lookup(list(set(all_proteinIds)))
-
-    # loop over each ena_id key in the process_results dict, loop over each loci
-    # associated with that ena_id, and consider the uniProtIds and proteinIds 
-    # lists. 
-    for ena_id in process_results.keys():
-        for loci in process_results[ena_id].keys():
-            loci_subdict = process_results[ena_id][loci]
-            # perform the reverse lookup
-            #rev_uniprot_ids, no_match = database_connection.reverse_lookup(loci_subdict["proteinIds"])
-            
-            # a loci should only ever have one "protein_id" line, still handle 
-            # the loci_subdict['proteinIds'] as if it can be large...
-            # this sums over a list of booleans. zeros for each False and 1 for
-            # each True.
-            matched = sum([proteinId in no_match for proteinId in loci_subdict['proteinIds']])
-            # check if the loci was not found in the reverseLookup and does not
-            # include any uniprotIds found during file parsing
-            if not matched and not len(loci_subdict["uniprotIds"]):
-                continue
-
-            # grab uniprot_ids found via reverseLookup that map to the loci's protein_id
-            rev_uniprot_ids = set([uniprot_id for uniprot_id, foreign_id in rev_mapping if foreign_id in loci_subdict['proteinIds']])
-            
-            # check whether the rev_uniprot_ids set is empty
-            if not rev_uniprot_ids:
-                # if it is empty, use the 
-                # process_results[ena_id][loci]["uniprotIds"] list; maybe 
-                # should be the combined set of the two lists?
-                uniprot_ids = loci_subdict["uniprotIds"]
-            else:
-                uniprot_ids = rev_uniprot_ids
-            
-            # loop over uniprot_ids and append to file. If uniprot_ids is
-            # empty, file is not written to.
-            for id_ in uniprot_ids:
-                with open(output_file,"a") as out_tab:
-                    out_tab.write(f"{ena_id}\t{id_}\t{loci_subdict['seqcount']}\t{loci_subdict['CHR']}\t{loci_subdict['DIR']}\t{loci_subdict['START']}\t{loci_subdict['END']}\n")
-
+                    # determine the directionality of the CDS
+                    DIR = 0 if "complement" in line else 1
+                    # add info to the Record's current_locus dict
+                    enaRecord.current_locus["DIR"] = DIR
+                    enaRecord.current_locus["START"] = int(START)
+                    enaRecord.current_locus["END"] = int(END)
+                
+    # done parsing file, but haven't finished parsing the last Record object
+    enaRecord.process_record(
+        count,
+        database_connection,
+        output_file
+    )
+    
     return output_file
 
 
