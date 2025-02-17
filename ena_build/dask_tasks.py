@@ -7,6 +7,7 @@ import os
 
 import mysql_database
 import parse_embl
+import bio_parse_embl
 
 ###############################################################################
 # Functions used as Dask Tasks
@@ -143,12 +144,25 @@ def process_many_files(
         start_time = time.time()
         # grab the stem of the file name to use in writing results
         fn_name = file_pattern.findall(file_path)[0]
-        # process the file
-        tab_file = parse_embl.process_file(
-            file_path, 
-            db_connection, 
-            out_dir + f"/{fn_name}.tab"
-        )
+        ## process the file
+        #tab_file = parse_embl.process_file(
+        #    file_path, 
+        #    db_connection, 
+        #    out_dir + f"/{fn_name}.tab"
+        #)
+        try:
+            tab_file = bio_parse_embl.process_file(
+                file_path, 
+                db_connection, 
+                out_dir + f"/{fn_name}.tab"
+            )
+        except:
+            tab_file = parse_embl.process_file(
+                file_path, 
+                db_connection, 
+                out_dir + f"/{fn_name}.tab"
+            )
+
         stop_time = time.time()
         # if the file does not return any tab results, no file will be written
         if os.path.isfile(out_dir + f"/{fn_name}.tab"):
