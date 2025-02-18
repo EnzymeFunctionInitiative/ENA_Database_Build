@@ -60,6 +60,10 @@ def parse_input_arguments() -> argparse.Namespace:
                                             available to perform tasks
         * ``--tskmgr-log-file`` or ``-log``, path string to be used for a log
                                              file that tracks progress
+        * ``--local-scratch`` or ```-scratch``, path string where temp files 
+                                                will be written, default = ''
+                                                indicating to not write temp 
+                                                files to storage
     
     Returns
     -------
@@ -105,10 +109,12 @@ def parse_config(file_path):
 
 
 ###############################################################################
-# MAIN
+# WORKFLOW FUNCTION
 ###############################################################################
 
-if __name__ == "__main__":
+def workflow():
+    """ run the dask workflow to parse the ENA dataset """
+    
     # parse input arguments
     args = parse_input_arguments()
 
@@ -155,6 +161,8 @@ if __name__ == "__main__":
     # tasks_completed object also lets us add new tasks to the queue, making 
     # this for loop very flexible/dynamic. 
     tasks_completed = as_completed(glob_subdirs_futures)
+    processing_tasks = 0
+    finished_processing_tasks = 0
     # loop over finished tasks
     for finished_task in tasks_completed:
         # gather the results from the finished task
@@ -165,12 +173,15 @@ if __name__ == "__main__":
             # results[1] will always be some true-equivalent value unless if a
             # glob search returns an empty list. if this is the case, then move
             # on. No new tasks need to be submitted. Log the result.
-            main_logger.info(f"{results[-1]} did not have any expected files/subdirs")
+            main_logger.info(f"{results[-1]} did not have any expected " 
+                + "files/subdirs")
         elif results[0] == "glob_subdirs":
             # finished task is a glob_subdirs task, so results[1] will be the
             # list of subdirectories. For each subdir, submit a new task to 
             # glob for gzipped files. 
-            main_logger.info(f"Found {len(results[1])} subdirectories in {results[3]}. Took {results[2]} seconds. Submitting {len(results[1])} new tasks to search for gzipped files.")
+            main_logger.info(f"Found {len(results[1])} subdirectories in "
+                + f"{results[3]}. Took {results[2]} seconds. Submitting " 
+                + f"{len(results[1])} new tasks to search for gzipped files.")
             # list comprehension is submitting a new task to the client, one 
             # for each subdirectory found in the intermediate directory. The
             # new future gets added to the task_completed iterator so will be
@@ -188,15 +199,17 @@ if __name__ == "__main__":
             # processed across the tasks. If n_workers is > than files in 
             # results[1], then only the necessary number of tasks to process 
             # one file per worker are created.
-            new_futures = [client.submit(process_many_files, shard, database_params = database_params, db_name = args.db_name, common_output_dir = args.output_dir) for shard in shards if shard]
+            new_futures = [client.submit(process_many_files, shard, database_params = database_params, db_name = args.db_name, common_output_dir = args.output_dir, scratch = args.local_scratch) for shard in shards if shard]
             main_logger.info(f"Found {len(results[1])} gzipped files in {results[3]}. Took {results[2]} seconds. Sharding the list into {len(new_futures)} tasks.")
+            processing_tasks += len(new_futures)
             for new_future in new_futures:
                 tasks_completed.add(new_future)
         elif results[0] == "process_many_files":
             # NOTE: UPDATE THIS
             # finished task is a process_many_files task, so results[1] is a 
             # list of file paths to temp tab files that need to be concatenated.
-            main_logger.info(f"Parsing {len(results[3])} files took {results[2]} seconds. Individual tab files written to {args.output_dir}.")
+            finished_processing_tasks += 1
+            main_logger.info(f"Parsing {len(results[3])} files took {results[2]} seconds. {finished_processing_tasks} tasks completed out of {processing_tasks}.")
             tab_files += results[1]
 
         # NOTE: delete me 
@@ -216,4 +229,12 @@ if __name__ == "__main__":
     
     main_logger.info(f"Closing dask pipeline and logging. Time: {time.time()}")
     clean_logger(main_logger)
+
+
+###############################################################################
+# MAIN
+###############################################################################
+
+if __name__ == "__main__":
+    workflow()
 
