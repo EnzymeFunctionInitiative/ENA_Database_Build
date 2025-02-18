@@ -223,7 +223,7 @@ def process_file(
                 
                 # need to handle the previous Record's data
                 enaRecord.process_record(
-                    count,
+                    enaRecord.count,
                     database_connection,
                     output_file
                 )
@@ -258,16 +258,16 @@ def process_file(
                 # are non-zero and the DIR value is not the default, then the 
                 # current_locus dict is filled with a previous CDS line's data. 
                 # Stash this locus' results into the Record's loci_dict.
-                if (count not in enaRecord.loci_dict.keys()
+                if (enaRecord.count not in enaRecord.loci_dict.keys()
                         and enaRecord.current_locus["START"]
                         and enaRecord.current_locus["END"]
                         and enaRecord.current_locus["DIR"] >= 0):
                     # add the current_locus dict to the full loci_dict, using
                     # the count integer as the key
-                    enaRecord.add_locus(count)
+                    enaRecord.add_locus(enaRecord.count)
                     # add one to the count since we're moving on to the next 
                     # locus
-                    count += 1
+                    enaRecord.count += 1
                 
                 # for the new locus:
                 # parse the CDS line to see if it fits the expected regex format
@@ -302,7 +302,7 @@ def process_file(
                     enaRecord.current_locus['proteinIds'].add(proteinId)
  
     # done parsing file, but haven't finished parsing the last Record object
-    enaRecord.process_record(count, database_connection, output_file)
+    enaRecord.process_record(enaRecord.count, database_connection, output_file)
     
     return output_file
 
