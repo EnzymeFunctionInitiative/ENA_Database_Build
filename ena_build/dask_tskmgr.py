@@ -213,7 +213,7 @@ def workflow():
             # processed across the tasks. If n_workers is > than files in 
             # results[1], then only the necessary number of tasks to process 
             # one file per worker are created.
-            new_futures = [client.submit(process_many_files, shard, database_params = database_params, db_name = args.db_name, common_output_dir = args.output_dir, scratch = args.local_scratch) for shard in shards if shard]
+            new_futures = [client.submit(process_many_files, shard, database_params = database_params, db_name = args.db_name, final_output_dir = args.output_dir, temp_output_dir = args.local_scratch) for shard in shards if shard]
             main_logger.info(f"Found {len(results[1])} gzipped files in " 
                 + f"{results[3]}. Took {results[2]} seconds. Sharding the " 
                 + f"list into {len(new_futures)} tasks.")
