@@ -4,6 +4,7 @@ import glob
 import gzip
 import re
 import os
+import shutil
 
 import mysql_database
 import parse_embl
@@ -66,21 +67,24 @@ def glob_files(dir_path: str) -> tuple:
     # only a subset of data files in the ENA sequence/ subdir are of interest 
     # to us. As far as I know, the second underscored section of the file name
     # denote the origin species type, which is what we need to consider.
-    # THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
+    # NOTE: THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
     if "sequence" in dir_path:
         # NOTE: regex to only gather file names with (ENV|PRO|FUN|PHG) in them
         pattern = re.compile(r"_(ENV|PRO|FUN|PHG)_")
         files = [file_ for file_ in files if pattern.search(file_)]
 
     return "glob_files", files, time.time() - st, dir_path
-    #return [(file_name, os.path.getsize(file_name)) for file_name in glob.glob(dir_path + f"/{search_string}")]
+    ## could gather file size as well as name to enable sorting the files from
+    ## largest to smallest; potential to optimize task prioritization
+    #return "glob_files", [(file, os.path.getsize(file)) for file in files], time.time() - st, dir_path
 
 
 def process_many_files(
         file_path_list: list, 
         database_params: dict,
         db_name: str, 
-        common_output_dir: str):
+        final_output_dir: str,
+        temp_output_dir: str = "/tmp"):
     """
     given a list of files, process them one at a time. Gather the files written 
     during processing and return that list. 
@@ -96,17 +100,21 @@ def process_many_files(
         db_name
             string, name of the EFI database to be used to perform
             queries. 
-        common_output_dir
-            string, local or global path within which result files will be 
-            written.
+        final_output_dir
+            string, global path for storage space on the HPC filesystem within 
+            which result files will be moved to.
+        temp_output_dir
+            string, global path for storage space on the compute resource within
+            which result files will be  written. A temporary space for fast IO.
+            Default = "/tmp"
 
     RETURNS
     -------
         "process_many_files"
             string used to ID type of task
-        tab_files
+        final_tab_files
             list of strings corresponding to the tsv files written during the
-            tawk
+            task, using the final_output_dir path
         `time.time() - st`
             elapsed time for this task, units: seconds
         file_path_list
@@ -117,63 +125,83 @@ def process_many_files(
     # use regex to match the parent directories' names; three layers worth if
     # in `wgs` tree of ENA or two layers worth if in `sequence` tree. This
     # regex will match a file path string, creating a list of a tuple with len
-    # 7. First four elements are associated with the wgs tree, the remaining
-    # with the sequence tree. 
-    # assume that all files in the file_path_list are sourced from the same
-    # directory
-    # THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
+    # 5. First three elements are associated with the wgs tree, the remaining
+    # two with the sequence tree. 
+    # NOTE: THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
     dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequence)\/(\w*)")
     # use regex to match the file name stem from the given file path; will 
     # create a list of len 1. 
     file_pattern= re.compile(r"\/(\w*)\.dat\.gz")
 
-    # only grab groups that were successfully matched. 
+    # apply the regex on the first file string in file_path_list, only grab 
+    # groups that were successfully matched. 
+    # NOTE: this assumes that all files in the file_path_list are sourced from
+    # the same directory; this will be a bug if files from different source dirs
+    # are included in file_path_list
     matches = [elem for elem in dir_pattern.findall(file_path_list[0])[0] if elem]
     # create an output_dir string that easily maps to the files being parsed
-    if common_output_dir[-1] != "/":
-        common_output_dir += "/"
-    out_dir = common_output_dir + "-".join(matches)
+    # format will be e.g. "wgs-public-wds" or "sequence-con"
+    if temp_output_dir[-1] != "/":
+        temp_output_dir += "/"
+    out_dir = temp_output_dir + "-".join(matches)
     # make the directory
-    os.makedirs(out_dir,exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
    
     # connect to the database
-    db_connection = mysql_database.IDMapper(database_params,db_name)
+    db_connection = mysql_database.IDMapper(database_params, db_name)
 
     tab_files = []
     for file_path in file_path_list:
         start_time = time.time()
         # grab the stem of the file name to use in writing results
         fn_name = file_pattern.findall(file_path)[0]
-        ## process the file
-        #tab_file = parse_embl.process_file(
-        #    file_path, 
-        #    db_connection, 
-        #    out_dir + f"/{fn_name}.tab"
-        #)
-        try:
-            tab_file = bio_parse_embl.process_file(
-                file_path, 
-                db_connection, 
-                out_dir + f"/{fn_name}.tab"
-            )
-        except:
-            tab_file = parse_embl.process_file(
-                file_path, 
-                db_connection, 
-                out_dir + f"/{fn_name}.tab"
-            )
+        # process the file
+        tab_file = parse_embl.process_file(
+            file_path, 
+            db_connection, 
+            out_dir + f"/{fn_name}.tab"
+        )
+        #try:
+        #    tab_file = bio_parse_embl.process_file(
+        #        file_path, 
+        #        db_connection, 
+        #        out_dir + f"/{fn_name}.tab"
+        #    )
+        #except:
+        #    tab_file = parse_embl.process_file(
+        #        file_path, 
+        #        db_connection, 
+        #        out_dir + f"/{fn_name}.tab"
+        #    )
 
         stop_time = time.time()
-        # if the file does not return any tab results, no file will be written
-        if os.path.isfile(out_dir + f"/{fn_name}.tab"):
+        # if the file does not return any results, no file will be written so 
+        # check to see if the expected file exists.
+        if os.path.isfile(tab_file):
             tab_files.append(tab_file)
     
     db_connection.close()
     
-    # quick and dirty handling of the task output
+    # if tab_files is empty, no files need to be shutil'd from temp to final
+    # storage spaces.
     if not tab_files:
-        tab_files = [""]
+        final_tab_files = [""]
+    else:
+        final_tab_files = []
+        if final_output_dir[-1] != "/":
+            final_output_dir += "/"
+        # follow the same directory naming scheme as used in the temp space
+        # NOTE: this assumes that all files in the file_path_list are sourced
+        # from the same directory; this will be a bug if files from different
+        # source dirs are included in file_path_list
+        final_dir = final_output_dir + "-".join(matches)
+        os.makedirs(final_dir, exist_ok=True)
+        # loop over tab files and move them from the temp to the final storage 
+        # space; shutil.move() provides the new path string for the moved file
+        for tab_file in tab_files:
+            new_tab_file = shutil.move(tab_file, final_dir)
+            final_tab_files.append(new_tab_file)
     
-    return "process_many_files", tab_files, time.time() - st, file_path_list
+    return "process_many_files", final_tab_files, time.time() - st, file_path_list
 
 
