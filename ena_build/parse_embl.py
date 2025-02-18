@@ -48,7 +48,7 @@ class Record():
         self.uniprotIds = set()
         self.proteinIds = set()
         # these two dicts will be filled with CDS entries, keys being the count
-        # and values being dict of "uniprotIDs", "proteinIDs", "DIR", "START",
+        # and values being dict of "uniprotIds", "proteinIds", "DIR", "START",
         # and "END"
         self.loci_dict = {}
         self.current_locus = {
@@ -294,7 +294,7 @@ def process_file(
                 uniprotId, proteinId = search_results[0]
                 # one or the other will be an empty string since no FT lines
                 # contain both uniprot or protein IDs
-                if uniprotID:
+                if uniprotId:
                     enaRecord.uniprotIds.add(uniprotId)
                     enaRecord.current_locus['uniprotIds'].add(uniprotId)
                 elif proteinId:
