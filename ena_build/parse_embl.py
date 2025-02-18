@@ -128,7 +128,7 @@ class Record():
             
             # gather uniprotIds from the reverse_mapping call for each 
             # proteinId associated with the locus; 
-            rev_uniprot_ids = [ids_mapping.get(proteinId) for proteinId in locus_subdict["proteinIds"] if proteinId not in no_match]
+            rev_uniprot_ids = [id_ for proteinId in locus_subdict["proteinIds"] for id_ in ids_mapping.get(proteinId) if proteinId not in no_match]
 
             # check whether the rev_uniprot_ids list is empty
             if not rev_uniprot_ids:
@@ -291,7 +291,7 @@ def process_file(
             # match the search patterns
             search_results = search_pattern.findall(line)
             if search_results:
-                uniprotId, proteinId = search_results[0]
+                proteinId, uniprotId = search_results[0]
                 # one or the other will be an empty string since no FT lines
                 # contain both uniprot or protein IDs
                 if uniprotId:
