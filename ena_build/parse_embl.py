@@ -43,10 +43,10 @@ class Record():
 
         """
         self.ENA_ID = ID
-        self.CHR: CHR,
-        self.count: 0,
-        self.uniprotIds: set(),
-        self.proteinIds: set(),
+        self.CHR = CHR
+        self.count = 0
+        self.uniprotIds = set()
+        self.proteinIds = set()
         # these two dicts will be filled with CDS entries, keys being the count
         # and values being dict of "uniprotIDs", "proteinIDs", "DIR", "START",
         # and "END"
