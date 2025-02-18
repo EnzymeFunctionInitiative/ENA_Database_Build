@@ -107,16 +107,30 @@ class Record():
                 and self.current_locus["DIR"] >= 0):
             self.add_locus(last_locus)
         
+        # use self.proteinIds set as input to the MySQL Database query
+        # ids_mapping is a dict of proteinIds as keys with uniprotIds as values
+        # no_match is a list of proteinIds that did not match to a uniprotId 
+        # in the database. 
+        ids_mapping, no_match = db_cnx.reverse_mapping(
+            list(self.proteinIds)
+        )
+
         # loop over each locus in the Record object, doing a reverse_lookup on
         # the locus' proteinIds to gather any uniprotIds. Write to file if the
         # locus has an associated uniprotId.
         for locus in self.loci_dict.keys():
             locus_subdict = self.loci_dict[locus]
-            # perform the reverse lookup
-            rev_uniprot_ids, no_match = db_cnx.reverse_lookup(
-                list(locus_subdict['proteinIds'])
-            )
-            # check whether the rev_uniprot_ids set is empty
+            
+            ## perform the reverse lookup
+            #rev_uniprot_ids, no_match = db_cnx.reverse_lookup(
+            #    list(locus_subdict['proteinIds'])
+            #)
+            
+            # gather uniprotIds from the reverse_mapping call for each 
+            # proteinId associated with the locus
+            rev_uniprot_ids = [id_ for id_ in ids_mapping.get(proteinId,[]) for proteinId in locus_subdict["proteinIds"]]
+
+            # check whether the rev_uniprot_ids list is empty
             if not rev_uniprot_ids:
                 # if it is empty, use the loci's uniprotIds value
                 # instead
