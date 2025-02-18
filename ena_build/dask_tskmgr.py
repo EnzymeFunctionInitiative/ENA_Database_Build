@@ -1,4 +1,6 @@
 
+import os
+import shutil
 import sys
 import argparse
 import logging
@@ -130,6 +132,17 @@ def workflow():
         sys.exit("Failed to connect to the MySQL database.")
     idmapper.close()
     
+    # make the args.output_dir and args.local_scratch directories
+    os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(args.local_scratch, exist_ok=True)
+
+    # check if a file can be written to args.local_scratch space and then
+    # shutil'd to args.output_dir
+    with open(args.local_scratch + '/test.txt','w') as out:
+        out.write("hello world")
+    out = shutil.move(args.local_scratch + '/test.txt', args.output_dir)
+    os.remove(out)
+
     # NOTE: validate other input arguments... 
     # ensure that any paths are global
 
@@ -149,11 +162,14 @@ def workflow():
 
     # start the dask client.
     client = Client(scheduler_file=args.scheduler_file)
-    # need to include at the moment because this file is not in the pythonpath
-    #client.upload_file("/home/n-z/rbdavid/Projects/ENA_building/build_ena_db.py")
     
     # prep a list to gather final tab files
     tab_files = []
+    # prep count variables to track progress through the processing_many_files
+    # tasks
+    processing_tasks = 0
+    finished_processing_tasks = 0
+    
     # submit tasks to the client that glob search for the intermediate layer 
     # of subdirs in ENA directory tree
     glob_subdirs_futures = client.map(glob_subdirs, args.ena_paths)
@@ -161,8 +177,6 @@ def workflow():
     # tasks_completed object also lets us add new tasks to the queue, making 
     # this for loop very flexible/dynamic. 
     tasks_completed = as_completed(glob_subdirs_futures)
-    processing_tasks = 0
-    finished_processing_tasks = 0
     # loop over finished tasks
     for finished_task in tasks_completed:
         # gather the results from the finished task
@@ -200,16 +214,20 @@ def workflow():
             # results[1], then only the necessary number of tasks to process 
             # one file per worker are created.
             new_futures = [client.submit(process_many_files, shard, database_params = database_params, db_name = args.db_name, common_output_dir = args.output_dir, scratch = args.local_scratch) for shard in shards if shard]
-            main_logger.info(f"Found {len(results[1])} gzipped files in {results[3]}. Took {results[2]} seconds. Sharding the list into {len(new_futures)} tasks.")
+            main_logger.info(f"Found {len(results[1])} gzipped files in " 
+                + f"{results[3]}. Took {results[2]} seconds. Sharding the " 
+                + f"list into {len(new_futures)} tasks.")
             processing_tasks += len(new_futures)
             for new_future in new_futures:
                 tasks_completed.add(new_future)
         elif results[0] == "process_many_files":
-            # NOTE: UPDATE THIS
             # finished task is a process_many_files task, so results[1] is a 
-            # list of file paths to temp tab files that need to be concatenated.
+            # list of file paths of tab files that need to be concatenated.
             finished_processing_tasks += 1
-            main_logger.info(f"Parsing {len(results[3])} files took {results[2]} seconds. {finished_processing_tasks} tasks completed out of {processing_tasks}.")
+            main_logger.info(f"Parsing {len(results[3])} files took " 
+                + f"{results[2]} seconds with {len(results[1])} tab files " 
+                + f"written. {finished_processing_tasks} tasks completed out " 
+                + f"of {processing_tasks}.")
             tab_files += results[1]
 
         # NOTE: delete me 
@@ -222,9 +240,8 @@ def workflow():
     # prep a bash script that concatenates the tab files and creates a table or
     # add a column to the mysql database?
     #for tab_file in tab_files:
-    #    shutil.move(tab_file, args.output_dir + f"/{Path(tab_file).name}")
 
-    ## for now, just log where the tab files were written
+    # for now, just log where the tab files were written
     main_logger.info(f"Find tab files in subdirs w/in {args.output_dir}")
     
     main_logger.info(f"Closing dask pipeline and logging. Time: {time.time()}")
