@@ -12,14 +12,16 @@ requires-python = ">=3.12"
 dependencies = [
   "configparser", 
   "mysql-connector-python", 
-  "dask"
+  "dask",
+  "biopython",
+  "gzip"
 ]
 
 [project.urls]
 Repository = "https://github.com/EnzymeFunctionInitiative/ENA_Database_Build"
 
 [project.scripts]
-ena_dask_tskmgr = "ena_build:dask_tskmgr"
+ena_dask_tskmgr = "ena_build.dask_tskmgr:workflow"
 
 [build-system]
 requires = ["setuptools >= 61.0"]
