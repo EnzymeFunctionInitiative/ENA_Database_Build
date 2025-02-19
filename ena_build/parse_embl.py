@@ -128,7 +128,7 @@ class Record():
             
             # gather uniprotIds from the reverse_mapping call for each 
             # proteinId associated with the locus; 
-            rev_uniprot_ids = [id_ for proteinId in locus_subdict["proteinIds"] for id_ in ids_mapping.get(proteinId) if proteinId not in no_match]
+            rev_uniprot_ids = [id_ for proteinId in locus_subdict["proteinIds"] for id_ in ids_mapping.get(proteinId,[]) if proteinId not in no_match]
 
             # check whether the rev_uniprot_ids list is empty
             if not rev_uniprot_ids:
