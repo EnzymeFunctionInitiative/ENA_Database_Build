@@ -63,6 +63,6 @@ A sample SLURM batch script is provided in `~/batch_scripts/` that is used to ru
 
 # Dask Workflow Overview
 
-
+**mermaid diagram goes here**
 
 
