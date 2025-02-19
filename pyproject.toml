@@ -20,7 +20,7 @@ dependencies = [
 Repository = "https://github.com/EnzymeFunctionInitiative/ENA_Database_Build"
 
 [project.scripts]
-ena_dask_tskmgr = "ena_build.dask_tskmgr:workflow"
+ena_dask_tskmgr = "dask_tskmgr:workflow"
 
 [build-system]
 requires = ["setuptools >= 61.0"]
