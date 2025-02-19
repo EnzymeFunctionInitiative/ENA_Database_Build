@@ -141,11 +141,18 @@ def process_many_files(
     matches = [elem for elem in dir_pattern.findall(file_path_list[0])[0] if elem]
     # create an output_dir string that easily maps to the files being parsed
     # format will be e.g. "wgs-public-wds" or "sequence-con"
-    if temp_output_dir[-1] != "/":
-        temp_output_dir += "/"
-    out_dir = temp_output_dir + "-".join(matches)
-    # make the directory
-    os.makedirs(out_dir, exist_ok=True)
+    if temp_output_dir:
+        if temp_output_dir[-1] != "/":
+            temp_output_dir += "/"
+        out_dir = temp_output_dir + "-".join(matches)
+        # make the directory
+        os.makedirs(out_dir, exist_ok=True)
+    else:
+        if final_output_dir[-1] != "/":
+            final_output_dir += "/"
+        out_diir = final_output_dir + "-".join(matches)
+        # make the directory
+        os.makedirs(out_dir, exist_ok=True)
    
     # connect to the database
     db_connection = mysql_database.IDMapper(database_params, db_name)
@@ -186,7 +193,9 @@ def process_many_files(
     # storage spaces.
     if not tab_files:
         final_tab_files = [""]
-    else:
+    # if temp_output_dir was actually used, need to shutil.move all the files
+    # written to a scratch space to the final_output_dir location
+    elif temp_output_dir:
         final_tab_files = []
         if final_output_dir[-1] != "/":
             final_output_dir += "/"
@@ -197,10 +206,14 @@ def process_many_files(
         final_dir = final_output_dir + "-".join(matches)
         os.makedirs(final_dir, exist_ok=True)
         # loop over tab files and move them from the temp to the final storage 
-        # space; shutil.move() provides the new path string for the moved file
+        # space; shutil.move() returns the new path string for the moved file
         for tab_file in tab_files:
             new_tab_file = shutil.move(tab_file, final_dir)
             final_tab_files.append(new_tab_file)
+    # temp_output_dir was not used, so no shutil'ing needs to be done; tab 
+    # files were already written to their final destination
+    else:
+        final_tab_files = tab_files
     
     return "process_many_files", final_tab_files, time.time() - st, file_path_list
 

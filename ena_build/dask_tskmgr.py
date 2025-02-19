@@ -47,8 +47,6 @@ def parse_input_arguments() -> argparse.Namespace:
     """
     Returns an `<argparse.Namespace>` with attributes associated with the input
     arguments for the ENA database build script:
-        * ``--db-type`` or ``-type``, string denoting type of database file to 
-                                      be queried
         * ``--db-config`` or ``-conf``, path string to the database config file
         * ``--db-name`` or ``-dbn``, string for the database name
         * ``--ena-paths``, a number of path strings; accepts multiple values 
@@ -81,16 +79,16 @@ def parse_input_arguments() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description = "Process the ENA Database")
     # EFI database input arguments
-    parser.add_argument("--db-type", "-type", required=True, help="string denoting type of database file to be queried, expected values are 'mysql' or 'sqlite'")
-    parser.add_argument("--db-config", "-conf", required=True, help="file path to the config file for database connection; assumed format is Windows INI")
-    parser.add_argument("--db-name", "-dbn", required=True, help="name of the EFI database to query for retrieving IDs")
+    #parser.add_argument("--db-type", "-type", required=True, help="string denoting type of database file to be queried, expected values are 'mysql' or 'sqlite'.")
+    parser.add_argument("--db-config", "-conf", required=True, help="file path to the config file containing  database connection information; assumed format is Windows INI.")
+    parser.add_argument("--db-name", "-dbn", required=True, help="name of the EFI database to query for retrieving IDs.")
     # ENA file IO input arguments
     parser.add_argument("--ena-paths", required=True, nargs="+", help="arbitrary number of file paths that house subdirectories to be searched for ENA related dat.gz files.")
-    parser.add_argument("--output-dir", "-out", required=True, help="path to the common output directory within which subdirectories and parsed data will be saved.")
+    parser.add_argument("--output-dir", "-out", required=True, help="path to the common output directory within which subdirectories and associated tab-separated data files will be saved.")
     # dask specific input arguments
-    parser.add_argument("--scheduler-file", "-s", required=True, help="path string to the dask scheduler file")
-    parser.add_argument("--n-workers", "-nWorkers", required=True, type=int, help="number of workers available to perform tasks")
-    parser.add_argument("--tskmgr-log-file", "-log", default = "dask_taskmngr.log", help="path string for a logging file")
+    parser.add_argument("--scheduler-file", "-s", default = "", help="path string to the dask scheduler file, default = '', indicating that a local dask cluster will be spun up rather than using a pre-defined scheduler and worker population.")
+    parser.add_argument("--n-workers", "-nWorkers", default = 2, help="number of workers available to perform tasks, default = 2.")
+    parser.add_argument("--tskmgr-log-file", "-log", default = "dask_tskmgr.log", help="path string for a logging file, default = 'dask_tskmgr.log'.")
     parser.add_argument("--local-scratch", "-scratch", default = "", help="path string where temp files will be written, default = '', indicating do not write temp files to storage.")
     args = parser.parse_args()
     return args
@@ -134,14 +132,15 @@ def workflow():
     
     # make the args.output_dir and args.local_scratch directories
     os.makedirs(args.output_dir, exist_ok=True)
-    os.makedirs(args.local_scratch, exist_ok=True)
-
-    # check if a file can be written to args.local_scratch space and then
-    # shutil'd to args.output_dir
-    with open(args.local_scratch + '/test.txt','w') as out:
-        out.write("hello world")
-    out = shutil.move(args.local_scratch + '/test.txt', args.output_dir)
-    os.remove(out)
+    # args.local_scratch may be an empty string so check for that
+    if args.local_scratch:
+        os.makedirs(args.local_scratch, exist_ok=True)
+        # check if a file can be written to args.local_scratch space and then
+        # shutil'd to args.output_dir
+        with open(args.local_scratch + '/test.txt','w') as out:
+            out.write("hello world")
+        out = shutil.move(args.local_scratch + '/test.txt', args.output_dir)
+        os.remove(out)
 
     # NOTE: validate other input arguments... 
     # ensure that any paths are global
@@ -161,7 +160,12 @@ def workflow():
     main_logger.info(f"\n{dask_parameter_string}")
 
     # start the dask client.
-    client = Client(scheduler_file=args.scheduler_file)
+    if args.scheduler_file:
+        client = Client(scheduler_file=args.scheduler_file)
+    else:
+        from distributed import LocalCluster
+        cluster = LocalCluster(n_workers = args.n_workers)
+        client = Client(cluster)
     
     # prep a list to gather final tab files
     tab_files = []
