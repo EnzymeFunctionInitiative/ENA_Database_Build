@@ -9,6 +9,8 @@
 date
 
 module load ena/20241205 
+#module load ena/20250211 
+ENA_PATH=$(module load ena 2>&1 | awk '{print $NF}')
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
@@ -72,8 +74,8 @@ echo "Starting Client Script"
 # test the workflow on a small dataset
 #python3 dask_tskmgr.py --db-config /home/n-z/rbdavid/test_efi.config --db-name efi_202412 --ena-paths /home/n-z/rbdavid/Projects/ENA_building/wgs/public /home/n-z/rbdavid/Projects/ENA_building/sequence /home/n-z/rbdavid/Projects/ENA_building/wgs/suppressed --output-dir /home/n-z/rbdavid/Projects/ENA_building/TEST/ --local-scratch /scratch/ --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file /home/n-z/rbdavid/Projects/ENA_building/testing_tskmgr.log
 
-# run the workflow on all ENA files in /private_stores/mirror/ena/20241205
-python3 dask_tskmgr.py --db-config /home/n-z/rbdavid/test_efi.config --db-name efi_202412 --ena-paths /private_stores/mirror/ena/20241205/sequence /private_stores/mirror/ena/20241205/wgs/public  /private_stores/mirror/ena/20241205/wgs/suppressed  --output-dir /private_stores/gerlt2/users/rbdavid/ENA_build/2025_02_05/ --local-scratch /scratch/ --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file /private_stores/gerlt2/users/rbdavid/ENA_build/2025_02_05/tskmgr.log
+# run the workflow on all ENA files in $ENA_PATH
+python3 dask_tskmgr.py --db-config /home/n-z/rbdavid/test_efi.config --db-name efi_202412 --ena-paths $ENA_PATH/sequence $ENA_PATH/wgs/public  $ENA_PATH/wgs/suppressed  --output-dir /private_stores/gerlt2/users/rbdavid/ENA_build/2025_02_05/ --local-scratch /scratch/ --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file /private_stores/gerlt2/users/rbdavid/ENA_build/2025_02_05/tskmgr.log
 
 for pid in $dask_pids
 do
