@@ -87,7 +87,7 @@ def parse_input_arguments() -> argparse.Namespace:
     parser.add_argument("--output-dir", "-out", required=True, help="path to the common output directory within which subdirectories and associated tab-separated data files will be saved.")
     # dask specific input arguments
     parser.add_argument("--scheduler-file", "-s", default = "", help="path string to the dask scheduler file, default = '', indicating that a local dask cluster will be spun up rather than using a pre-defined scheduler and worker population.")
-    parser.add_argument("--n-workers", "-nWorkers", default = 2, help="number of workers available to perform tasks, default = 2.")
+    parser.add_argument("--n-workers", "-nWorkers", default = 2, type=int, help="number of workers available to perform tasks, default = 2.")
     parser.add_argument("--tskmgr-log-file", "-log", default = "dask_tskmgr.log", help="path string for a logging file, default = 'dask_tskmgr.log'.")
     parser.add_argument("--local-scratch", "-scratch", default = "", help="path string where temp files will be written, default = '', indicating do not write temp files to storage.")
     args = parser.parse_args()
