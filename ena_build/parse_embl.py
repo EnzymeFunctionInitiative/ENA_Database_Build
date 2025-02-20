@@ -98,6 +98,11 @@ class Record():
                 function
         
         """
+        # before doing any processing, check to make sure self.ENA_ID is not an
+        # empty string
+        if not self.ENA_ID:
+            return
+
         # check to see if the last_locus is not a key in the Record's loci_dict
         # as well as that locus' START, END, and DIR values are different from
         # the default/starting values
@@ -228,10 +233,20 @@ def process_file(
                     output_file
                 )
                 
-                # parse ID line using regex to get groups
+                # parse ID line using regex to get list of tuple of len 2
                 # group 0 is the ENA ID, group 1 is the chromosome structure 
                 # type
-                ID, CHR = id_pattern.findall(line)[0]
+                id_groups = id_pattern.findall(line)
+                if id_groups:
+                    ID, CHR = id_groups[0]
+                else:
+                    # NOTE: NEED TO CHECK WHICH LINES ARE BEING CAUGHT HERE
+                    # DO THEY MAP TO AN ACTUAL ID LINE THAT DOESN'T MAP TO THE 
+                    # ID_PATTERN? DO THEY SIGNIFY THE START OF A NEW RECORD 
+                    # OBJECT OR CAN I JUST `CONTINUE` TO THE NEXT LINE
+                    ID = ""
+                    CHR = -1
+                    print(f"!!! Ill-formatted ID line observed in {file_path}: {line}")
 
                 # CHR is the type of chromosome structure, linear or circular; 
                 # there are some non-standard structures, skip those.
