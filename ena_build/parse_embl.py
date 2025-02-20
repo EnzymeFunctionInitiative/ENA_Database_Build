@@ -99,7 +99,8 @@ class Record():
         
         """
         # before doing any processing, check to make sure self.ENA_ID is not an
-        # empty string
+        # empty string; empty string for self.ENA_ID is used to denote Records
+        # that should not be processed.
         if not self.ENA_ID:
             return
 
@@ -114,22 +115,17 @@ class Record():
         
         # use self.proteinIds set as input to the MySQL Database query
         # ids_mapping is a dict of proteinIds as keys with uniprotIds as values
-        # no_match is a list of proteinIds that did not match to a uniprotId 
-        # in the database. 
+        # no_match is a list of proteinIds that did not map to a uniprotId in 
+        # the database. 
         ids_mapping, no_match = db_cnx.reverse_mapping(
             list(self.proteinIds)
         )
 
-        # loop over each locus in the Record object, doing a reverse_lookup on
-        # the locus' proteinIds to gather any uniprotIds. Write to file if the
-        # locus has an associated uniprotId.
+        # loop over each locus in the Record object, get the mapping btw 
+        # the proteinIds and uniprotIds from the reverse_mapping results
+        # Write to file if the locus has an associated uniprotId.
         for locus in self.loci_dict.keys():
             locus_subdict = self.loci_dict[locus]
-            
-            ## perform the reverse lookup
-            #rev_uniprot_ids, no_match = db_cnx.reverse_lookup(
-            #    list(locus_subdict['proteinIds'])
-            #)
             
             # gather uniprotIds from the reverse_mapping call for each 
             # proteinId associated with the locus; 
@@ -137,9 +133,9 @@ class Record():
 
             # check whether the rev_uniprot_ids list is empty
             if not rev_uniprot_ids:
-                # if it is empty, use the loci's uniprotIds value
-                # instead
-                # maybe should be the combined set of the two lists?
+                # if it is empty, use the loci's uniprotIds value instead
+                # NOTE: maybe we should actually be using the combined set of
+                # the two lists?
                 uniprot_ids = locus_subdict["uniprotIds"]
             else:
                 uniprot_ids = rev_uniprot_ids
@@ -218,9 +214,21 @@ def process_file(
     with gzip.open(file_path, 'rt') as f:
         # loop over each line in f without reading the whole file
         for line in f: 
-            # check for lines that do not start with "FT   " nor "ID   "
-            # we currently don't do anything with those lines so just move on
-            if not line.startswith(("FT   ", "ID   ")):
+            # check for lines that do not start with "FT   ", "ID   ", nor 
+            # "OC   ", we currently don't do anything with those lines so just
+            # move on
+            if not line.startswith(("FT   ", "ID   ", "OC   ")):
+                continue
+
+            # only interested in parsing Records associated with the Fungi 
+            # kingdom when considering genomes from Eukaryota domain. 
+            # an OC line is always found after an ID line and before any FT 
+            # lines. Just overwrite the Record object.
+            elif (line.startswith("OC   ") 
+                    and "Eukaryota" in line 
+                    and "Fungi" not in line):
+                print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line}")
+                enaRecord = Record(ID = "", CHR = -1)
                 continue
 
             # check for "ID" lines
