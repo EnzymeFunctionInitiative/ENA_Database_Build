@@ -78,15 +78,11 @@ def parse_input_arguments() -> argparse.Namespace:
             args.local_scratch
     """
     parser = argparse.ArgumentParser(description = "Process the ENA Database")
-    # EFI database input arguments
-    #parser.add_argument("--db-type", "-type", required=True, help="string denoting type of database file to be queried, expected values are 'mysql' or 'sqlite'.")
     parser.add_argument("--db-config", "-conf", required=True, help="file path to the config file containing  database connection information; assumed format is Windows INI.")
     parser.add_argument("--db-name", "-dbn", required=True, help="name of the EFI database to query for retrieving IDs.")
-    # ENA file IO input arguments
     parser.add_argument("--ena-paths", required=True, nargs="+", help="arbitrary number of file paths that house subdirectories to be searched for ENA related dat.gz files.")
     parser.add_argument("--output-dir", "-out", required=True, help="path to the common output directory within which subdirectories and associated tab-separated data files will be saved.")
-    # dask specific input arguments
-    parser.add_argument("--scheduler-file", "-s", default = "", help="path string to the dask scheduler file, default = '', indicating that a local dask cluster will be spun up rather than using a pre-defined scheduler and worker population.")
+    parser.add_argument("--scheduler-file", "-s", help="path string to the dask scheduler file.")
     parser.add_argument("--n-workers", "-nWorkers", default = 2, type=int, help="number of workers available to perform tasks, default = 2.")
     parser.add_argument("--tskmgr-log-file", "-log", default = "dask_tskmgr.log", help="path string for a logging file, default = 'dask_tskmgr.log'.")
     parser.add_argument("--local-scratch", "-scratch", default = "", help="path string where temp files will be written, default = '', indicating do not write temp files to storage.")
@@ -142,9 +138,6 @@ def workflow():
         out = shutil.move(args.local_scratch + '/test.txt', args.output_dir)
         os.remove(out)
 
-    # NOTE: validate other input arguments... 
-    # ensure that any paths are global
-
     # set up the main logger file and list all relevant parameters
     main_logger = setup_logger("tskmgr_logger",args.tskmgr_log_file)
     main_logger.info(f"Starting dask pipeline and setting up logging. Time: {time.time()}")
@@ -160,12 +153,7 @@ def workflow():
     main_logger.info(f"\n{dask_parameter_string}")
 
     # start the dask client.
-    if args.scheduler_file:
-        client = Client(scheduler_file=args.scheduler_file)
-    else:
-        from distributed import LocalCluster
-        cluster = LocalCluster(n_workers = args.n_workers)
-        client = Client(cluster)
+    client = Client(scheduler_file=args.scheduler_file)
     
     # prep a list to gather final tab files
     tab_files = []
@@ -228,26 +216,41 @@ def workflow():
             # finished task is a process_many_files task, so results[1] is a 
             # list of file paths of tab files that need to be concatenated.
             finished_processing_tasks += 1
-            main_logger.info(f"Parsing {len(results[3])} files took " 
-                + f"{results[2]} seconds with {len(results[1])} tab files " 
-                + f"written. {finished_processing_tasks} tasks completed out " 
-                + f"of {processing_tasks}.")
-            tab_files += results[1]
+            task_tab_files = [tab for tab in results[1] if tab]
+            main_logger.info(f"Parsing {len(results[3])} file(s) took " 
+                + f"{results[2]} seconds with {len(task_tab_files)} tab "
+                + f"file(s) written. {finished_processing_tasks} tasks " 
+                + f"completed out of {processing_tasks}.")
+            tab_files += task_tab_files
 
-        # NOTE: delete me 
-        else:
-            main_logger.info(results)
-            sys.exit("Unexpected results from a task. Exiting.")
-
-    # gather all results into a final file?
-    # or 
-    # prep a bash script that concatenates the tab files and creates a table or
-    # add a column to the mysql database?
-    #for tab_file in tab_files:
-
-    # for now, just log where the tab files were written
-    main_logger.info(f"Find tab files in subdirs w/in {args.output_dir}")
+    main_logger.info("Find individual tab files in subdirs w/in" 
+        + f" {args.output_dir} .")
     
+    # sort the tab_files list... likely to be slow since so many tab files 
+    # will be written
+    tab_files.sort()
+    # open a file to be filled with all contents of all of the tab files
+    with open(args.output_dir + '/ena.tab','w') as out:
+        # loop over the sorted tab files
+        for tab in tab_files:
+            # open the tab file and write each line to the out file
+            with open(tab,'r') as tsv:
+                for line in tsv:
+                    out.write(line)
+
+    main_logger.info("Catenated all individual tabs into" 
+        + f" {args.output_dir + '/ena.tab'}.")
+
+    # need to clean up scratch space before closing down the workflow
+    if args.local_scratch:
+        main_logger.info("Cleaning the scratch space.") 
+        dirs = os.listdir(args.local_scratch)
+        for direc in dirs:
+            try:
+                os.rmdir(direc)
+            except:
+                pass
+
     main_logger.info(f"Closing dask pipeline and logging. Time: {time.time()}")
     clean_logger(main_logger)
 

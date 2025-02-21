@@ -84,7 +84,7 @@ def process_many_files(
         database_params: dict,
         db_name: str, 
         final_output_dir: str,
-        temp_output_dir: str = "/tmp"):
+        temp_output_dir: str = "/scratch"):
     """
     given a list of files, process them one at a time. Gather the files written 
     during processing and return that list. 
@@ -106,7 +106,7 @@ def process_many_files(
         temp_output_dir
             string, global path for storage space on the compute resource within
             which result files will be  written. A temporary space for fast IO.
-            Default = "/tmp"
+            Default = "/scratch"
 
     RETURNS
     -------
@@ -168,19 +168,6 @@ def process_many_files(
             db_connection, 
             out_dir + f"/{fn_name}.tab"
         )
-        #try:
-        #    tab_file = bio_parse_embl.process_file(
-        #        file_path, 
-        #        db_connection, 
-        #        out_dir + f"/{fn_name}.tab"
-        #    )
-        #except:
-        #    tab_file = parse_embl.process_file(
-        #        file_path, 
-        #        db_connection, 
-        #        out_dir + f"/{fn_name}.tab"
-        #    )
-
         stop_time = time.time()
         # if the file does not return any results, no file will be written so 
         # check to see if the expected file exists.
@@ -205,7 +192,7 @@ def process_many_files(
         # source dirs are included in file_path_list
         final_dir = final_output_dir + "-".join(matches)
         os.makedirs(final_dir, exist_ok=True)
-        # loop over tab files and move them from the temp to the final storage 
+        # loop over tab files and move them from the temp to the final storage
         # space; shutil.move() returns the new path string for the moved file
         for tab_file in tab_files:
             new_tab_file = shutil.move(tab_file, final_dir)
