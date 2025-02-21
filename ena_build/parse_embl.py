@@ -182,8 +182,8 @@ def process_file(
     # search for UniProtKB/... database accession ID lines, group 1 matches the
     # associated accession ID. 
     search_strs = [
-        r'(?:^FT\s+\/protein_id=\"([a-zA-Z0-9\.]+)\")', 
-        r'(?:^FT\s+\/db_xref=\"UniProtKB\/[a-zA-Z0-9-]+:(\w+)\")'
+        r'^FT\s+\/protein_id=\"([a-zA-Z0-9\.]+)\"', 
+        r'^FT\s+\/db_xref=\"UniProtKB\/[a-zA-Z0-9-]+:(\w+)\"'
     ]
     
     # compile the combined search pattern.
@@ -198,7 +198,7 @@ def process_file(
     # create the "ID " search pattern.
     # search for ID lines, group 0 and 1 map to ID and type of chromosome
     # structure (circular or linear or nonstandard strings like XXX);
-    id_pattern = re.compile(r"(?:^ID\s+(\w+);\s\w\w\s\w;\s(\w+);\s.*)") 
+    id_pattern = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);") 
 
     # create the "FT   CDS" search pattern. 
     # If the line matches this search string, then the a list of a tuple of 
@@ -226,7 +226,7 @@ def process_file(
             # lines. Just overwrite the Record object.
             elif (line.startswith("OC   ") 
                     and "Eukaryota" in line 
-                    and "Fungi" not in line):
+                    and " Fungi" not in line):
                 #print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line}")
                 enaRecord = Record(ID = "", CHR = -1)
                 continue
@@ -254,7 +254,7 @@ def process_file(
                     # OBJECT OR CAN I JUST `CONTINUE` TO THE NEXT LINE
                     ID = ""
                     CHR = -1
-                    print(f"!!! Ill-formatted ID line observed in {file_path}: {line}")
+                    print(f"!!! Ill-formatted ID line observed in {file_path}:{line}")
 
                 # CHR is the type of chromosome structure, linear or circular; 
                 # there are some non-standard structures, skip those.
@@ -262,16 +262,25 @@ def process_file(
                     # check if the type is either linear or circular
                     CHR = 1 if CHR == "linear" else 0
                 else:
-                    print(f"!!! Unknown chromosome type observed in {file_path}: {line}")
+                    print(f"!!! Unknown chromosome type observed in {file_path}:{line}")
                     # by replacing ID with an empty string, we are effectively 
                     # ignoring unexpected chromosome type strings; we'll
                     # ignore the "" ID string in the Record.process_record()
                     # method
                     ID = ""
+                    CHR = -1
                 
                 # create the new Record object, currently empty except for the 
                 # ID and CHR fields
                 enaRecord = Record(ID = ID, CHR = CHR)
+                continue
+
+            # check whether the current enaRecord object has a True-like ENA_ID
+            # attribute. If it doesn't, then any lines can be skipped since the
+            # active Record will not be parsed into a file.
+            # this must come after the `if line.startswith("ID   ") block
+            # otherwise this check would skip over every ID line from the start
+            elif not enaRecord.ENA_ID:
                 continue
 
             # check for new gene coding sequence blocks
