@@ -55,7 +55,7 @@ options:
                         path string where temp files will be written, default = '', indicating do not write temp files to storage.
 ```
 
-As the name of the command suggests, this command utilizes the Dask `distributed` library to efficiently utilize available compute resources to perform a large number of tasks. 
+As the name suggests, this command runs a dask workflow using the `distributed` library to efficiently utilize available compute resources to perform a large number of tasks. 
 See the "Dask Workflow Overview" section for more details about the task graph. 
 
 ## Full Scale Workflow
@@ -63,6 +63,5 @@ A sample SLURM batch script is provided in `~/batch_scripts/` that is used to ru
 
 # Dask Workflow Overview
 
-**mermaid diagram goes here**
-
+![Batch script flowchart of Dask scheduler, workers, and client working in tandem to perform the tasks defined in the dask_tskmgr.py script](https://github.com/EnzymeFunctionInitiative/ENA_Database_Build/blob/1622e7b1e6644f77ae7c7fc6a7a84e8811de4d9a/images/ena_db_build_flowchart.png)
 
