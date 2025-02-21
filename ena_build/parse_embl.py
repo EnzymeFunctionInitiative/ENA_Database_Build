@@ -227,7 +227,7 @@ def process_file(
             elif (line.startswith("OC   ") 
                     and "Eukaryota" in line 
                     and "Fungi" not in line):
-                print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line}")
+                #print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line}")
                 enaRecord = Record(ID = "", CHR = -1)
                 continue
 
