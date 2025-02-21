@@ -13,7 +13,6 @@ dependencies = [
   "configparser", 
   "mysql-connector-python", 
   "dask",
-  "biopython",
 ]
 
 [project.urls]
