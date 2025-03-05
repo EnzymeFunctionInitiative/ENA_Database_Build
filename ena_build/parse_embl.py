@@ -247,28 +247,28 @@ def process_file(
                 id_groups = id_pattern.findall(line)
                 if id_groups:
                     ID, CHR = id_groups[0]
+                    
+                    # CHR is the type of chromosome structure, linear or circular; 
+                    # there are some non-standard structures, skip those.
+                    if CHR in ["linear","circular"]:
+                        # check if the type is either linear or circular
+                        CHR = 1 if CHR == "linear" else 0
+                    else:
+                        print(f"!!! Unknown chromosome type observed in {file_path}:{line}")
+                        # by replacing ID with an empty string, we are effectively 
+                        # ignoring unexpected chromosome type strings; we'll
+                        # ignore the "" ID string in the Record.process_record()
+                        # method
+                        ID = ""
+                        CHR = -1
                 else:
                     # NOTE: NEED TO CHECK WHICH LINES ARE BEING CAUGHT HERE
                     # DO THEY MAP TO AN ACTUAL ID LINE THAT DOESN'T MAP TO THE 
                     # ID_PATTERN? DO THEY SIGNIFY THE START OF A NEW RECORD 
-                    # OBJECT OR CAN I JUST `CONTINUE` TO THE NEXT LINE
+                    # OBJECT OR CAN I JUST `CONTINUE` TO THE NEXT RECORD
                     ID = ""
                     CHR = -1
                     print(f"!!! Ill-formatted ID line observed in {file_path}:{line}")
-
-                # CHR is the type of chromosome structure, linear or circular; 
-                # there are some non-standard structures, skip those.
-                if CHR in ["linear","circular"]:
-                    # check if the type is either linear or circular
-                    CHR = 1 if CHR == "linear" else 0
-                else:
-                    print(f"!!! Unknown chromosome type observed in {file_path}:{line}")
-                    # by replacing ID with an empty string, we are effectively 
-                    # ignoring unexpected chromosome type strings; we'll
-                    # ignore the "" ID string in the Record.process_record()
-                    # method
-                    ID = ""
-                    CHR = -1
                 
                 # create the new Record object, currently empty except for the 
                 # ID and CHR fields
@@ -288,14 +288,15 @@ def process_file(
                 # if the count value is not already a key in the 
                 # Record.loci_dict and the current_locus' START and END values 
                 # are non-zero and the DIR value is not the default, then the 
-                # current_locus dict is filled with a previous CDS line's data. 
-                # Stash this locus' results into the Record's loci_dict.
+                # Record.current_locus dict is filled with a previous CDS line's
+                # data. Stash this locus' results into the Record's loci_dict.
                 if (enaRecord.count not in enaRecord.loci_dict.keys()
                         and enaRecord.current_locus["START"]
                         and enaRecord.current_locus["END"]
                         and enaRecord.current_locus["DIR"] >= 0):
                     # add the current_locus dict to the full loci_dict, using
-                    # the count integer as the key
+                    # the count integer as the key. This call also resets the
+                    # Record.current_locus dict's values. 
                     enaRecord.add_locus(enaRecord.count)
                     # add one to the count since we're moving on to the next 
                     # locus
@@ -307,7 +308,7 @@ def process_file(
                 # directionality
                 cds_result = cds_pattern.findall(line)
                 if cds_result:
-                    # the two regex groups
+                    # gather the two regex groups from the matched cds_pattern
                     START, END = cds_result[0]
                     # determine the directionality of the CDS
                     DIR = 0 if "complement" in line else 1
@@ -317,15 +318,19 @@ def process_file(
                     enaRecord.current_locus["END"] = int(END)
                 
                 continue
-            
-            # now we need to consider the diverse set of "FT\s+" formatted lines
-            # regex still feels like the fastest way to check for the lines that
-            # match the search patterns
+
+            # only lines that have made it this far are ones that start with
+            # "FT\s+". Most of these will be unimportant to us, but there is
+            # a huge diversity of these lines. We are only interested in 
+            # gathering UniProtIds and proteinIds. So, regex is the fastest way
+            # to check for the lines that match the desired lines.
             search_results = search_pattern.findall(line)
             if search_results:
+                # if the regex pattern is matched, search_results will be a list
+                # of a tuple of len 2. One or the other element in this tuple 
+                # will be an empty string since no FT lines contain both uniprot
+                # or protein IDs.
                 proteinId, uniprotId = search_results[0]
-                # one or the other will be an empty string since no FT lines
-                # contain both uniprot or protein IDs
                 if uniprotId:
                     enaRecord.uniprotIds.add(uniprotId)
                     enaRecord.current_locus['uniprotIds'].add(uniprotId)
