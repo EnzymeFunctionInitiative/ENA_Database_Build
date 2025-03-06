@@ -118,9 +118,8 @@ class Record():
         # if the cds_line fails to parse, end the method early.
         else:
             self.current_locus_lines = ""
-            print(f"!!! FT CDS line block failed to be " 
-                    + f"processed. {file_path}:\m"
-                    + f"{enaRecord.current_locus_lines}")
+            print(f"!!! FT CDS line block failed to be processed. {file_path}:"
+                    + f"\n{self.current_locus_lines}")
             return 1
             #temp = self.current_locus_lines
             #raise InvalidLocusException(temp)
@@ -159,7 +158,7 @@ class Record():
                 "END": END
             }
             # increment the counter for the next Locus to be found
-            enaRecord.count += 1
+            self.count += 1
         
         # refresh the current_locus_lines string.
         self.current_locus_lines = ""
