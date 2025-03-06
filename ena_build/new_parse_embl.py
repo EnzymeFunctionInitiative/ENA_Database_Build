@@ -230,8 +230,8 @@ class Record():
                 with open(output_file, "a") as out_tab:
                     out_tab.write(f"{self.ENA_ID}\t{id_}\t{locus}\t{self.CHR}\t{locus_subdict['DIR']}\t{locus_subdict['START']}\t{locus_subdict['END']}\n")
 
-            # remove the locus key from the Record.loci_dict to keep this clean
-            self.loci_dict.pop(locus)
+            ## remove the locus key from the Record.loci_dict to keep this clean
+            #self.loci_dict.pop(locus)
 
 
 ###############################################################################
