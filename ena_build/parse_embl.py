@@ -227,7 +227,7 @@ def process_file(
             elif (line.startswith("OC   ") 
                     and "Eukaryota" in line 
                     and " Fungi" not in line):
-                #print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line}")
+                #print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line.strip()}")
                 enaRecord = Record(ID = "", CHR = -1)
                 continue
 
@@ -254,7 +254,7 @@ def process_file(
                         # check if the type is either linear or circular
                         CHR = 1 if CHR == "linear" else 0
                     else:
-                        print(f"!!! Unknown chromosome type observed in {file_path}:{line}")
+                        print(f"!!! Unknown chromosome type observed in {file_path}:{line.strip()}")
                         # by replacing ID with an empty string, we are effectively 
                         # ignoring unexpected chromosome type strings; we'll
                         # ignore the "" ID string in the Record.process_record()
@@ -268,7 +268,7 @@ def process_file(
                     # OBJECT OR CAN I JUST `CONTINUE` TO THE NEXT RECORD
                     ID = ""
                     CHR = -1
-                    print(f"!!! Ill-formatted ID line observed in {file_path}:{line}")
+                    print(f"!!! Ill-formatted ID line observed in {file_path}:{line.strip()}")
                 
                 # create the new Record object, currently empty except for the 
                 # ID and CHR fields
