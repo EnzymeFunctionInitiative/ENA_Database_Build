@@ -188,7 +188,7 @@ class Record():
 
         # check to see if the Record.count is not a key in the Record's 
         # loci_dict already 
-        if (self.count not in self.loci_dict.keys()
+        if self.count not in self.loci_dict.keys():
             rt = self.add_locus()
             ## check for non-zero return code
             #if rt != 0:
