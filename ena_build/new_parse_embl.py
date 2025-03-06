@@ -43,7 +43,7 @@ FT_START_PATTERN = re.compile(r"^FT\s\s\s[a-zA-Z0-9-]")
 ###############################################################################
 
 class Record():
-    def __init__(self, ID: str, CHR: int):
+    def __init__(self, ID: str, CHR: int, file_path: str):
         """ 
         Instantiate a Record object for a new chromosome block in an EMBL flat
         file
@@ -81,6 +81,7 @@ class Record():
                 currently-being parsed CDS block.
 
         """
+        self.file_path = file_path
         self.ENA_ID = ID
         self.CHR = CHR
         self.count = 1
@@ -118,8 +119,8 @@ class Record():
         # if the cds_line fails to parse, end the method early.
         else:
             self.current_locus_lines = ""
-            print(f"!!! FT CDS line block failed to be processed. {file_path}:"
-                    + f"\n{self.current_locus_lines}")
+            print("!!! FT CDS line block failed to be processed. "
+                    + f"{self.file_path}:\n{self.current_locus_lines}")
             return 1
             #temp = self.current_locus_lines
             #raise InvalidLocusException(temp)
@@ -237,7 +238,7 @@ class Record():
 # Parsing an EMBL flat file
 ###############################################################################
 
-def process_id_line(line: str):
+def process_id_line(line: str, file_path: str):
     """
     """
     # parse ID line using regex to get list of tuple of len 2 group 0 is the 
@@ -302,7 +303,7 @@ def process_file(
             check for its existence outside of this function is necessary
     """
     # create the first Record object that will be empty
-    enaRecord = Record(ID = "", CHR = 0)
+    enaRecord = Record(ID = "", CHR = 0, file_path = file_path)
     
     # open and read the gzipped file
     with gzip.open(file_path, 'rt') as f:
@@ -335,11 +336,11 @@ def process_file(
                     )
                 
                 # process the ENA ID line to grab the ID and CHR info
-                ID, CHR = process_id_line(line)
+                ID, CHR = process_id_line(line, file_path)
 
                 # create the new Record object, currently empty except for the 
                 # ID and CHR fields
-                enaRecord = Record(ID = ID, CHR = CHR)
+                enaRecord = Record(ID = ID, CHR = CHR, file_path = file_path)
                 continue
 
             # only interested in parsing Records associated with the Fungi 
@@ -350,7 +351,7 @@ def process_file(
                     and "Eukaryota" in line 
                     and " Fungi" not in line):
                 #print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line}")
-                enaRecord = Record(ID = "", CHR = -1)
+                enaRecord = Record(ID = "", CHR = -1, file_path = "")
                 continue
 
             # check whether the current enaRecord object has a True-like ENA_ID
