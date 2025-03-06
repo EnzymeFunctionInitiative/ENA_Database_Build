@@ -253,7 +253,7 @@ def process_id_line(line: str, file_path: str):
             CHR = 1 if CHR == "linear" else 0
         else:
             print("!!! Unknown chromosome type observed in "
-                    + f"{file_path}:{line}")
+                    + f"{file_path}:{line.strip()}")
             # by replacing ID with an empty string, we are effectively 
             # ignoring unexpected chromosome type strings; we'll ignore the 
             # "" ID string in the Record.process_record() method
@@ -267,7 +267,7 @@ def process_id_line(line: str, file_path: str):
         ID = ""
         CHR = -1
         print("!!! Ill-formatted ID line observed in " 
-                + f"{file_path}:{line}")
+                + f"{file_path}:{line.strip()}")
 
     return ID, CHR
 
@@ -349,7 +349,7 @@ def process_file(
             elif (line.startswith("OC   ") 
                     and "Eukaryota" in line 
                     and " Fungi" not in line):
-                #print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line}")
+                #print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line.strip()}")
                 enaRecord = Record(ID = "", CHR = -1, file_path = "")
                 continue
 
