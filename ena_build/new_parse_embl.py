@@ -187,9 +187,8 @@ class Record():
         if not self.ENA_ID:
             return
 
-        # check to see if the Record.count is not a key in the Record's 
-        # loci_dict already 
-        if self.count not in self.loci_dict.keys():
+        # check to see if the Record.current_locus_lines is not empty
+        if self.current_locus_lines:
             rt = self.add_locus()
             ## check for non-zero return code
             #if rt != 0:
@@ -328,7 +327,7 @@ def process_file(
 
                 # check if the enaRecord object was filled with info before
                 # processing it
-                if not enaRecord.ENA_ID:
+                if enaRecord.ENA_ID:
                     # need to handle the previous Record's data
                     enaRecord.process_record(
                         database_connection,
