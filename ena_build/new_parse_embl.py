@@ -187,13 +187,12 @@ class Record():
             return
 
         # check to see if the Record.count is not a key in the Record's 
-        # loci_dict already as well as the last_locus_obj's START, END, and DIR
-        # attributes are different from their default/starting values
+        # loci_dict already 
         if (self.count not in self.loci_dict.keys()
-                and last_locus_obj.START
-                and last_locus_obj.END
-                and last_locus_obj.DIR >= 0):
-            self.add_locus(last_locus_obj)
+            rt = self.add_locus()
+            ## check for non-zero return code
+            #if rt != 0:
+            #    # do something
         
         # use self.proteinIds set as input to the MySQL Database query
         # ids_mapping is a dict of proteinIds as keys with uniprotIds as values
@@ -321,7 +320,10 @@ def process_file(
                 # check if the enaRecord.current_locus_lines is full
                 if enaRecord.current_locus_lines:
                     # parse the string and add the locus to the loci_dict
-                    enaRecord.add_locus()
+                    rt = enaRecord.add_locus()
+                    ## check for non-zero return code
+                    #if rt != 0:
+                    #    # do something
 
                 # check if the enaRecord object was filled with info before
                 # processing it
