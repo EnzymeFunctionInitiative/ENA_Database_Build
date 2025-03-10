@@ -7,13 +7,11 @@ Code used to process the European Nucleotide Archive (ENA) dataset, gathering ch
 # create the env to be used to run the workflow
 conda create -n ena_db_build python=3.12
 conda activate ena_db_build
+conda config --add channels conda-forge
 
 # install necessary modules
 conda install -y configparser gzip dask biopython
 python3 -m pip install mysql-connector-python 
-python3 -m pip install mysql-connector-python --upgrade
-# or
-conda install -y --file package-list.txt
 
 # add this repo's code base as modules
 python3 -m pip install .
