@@ -24,7 +24,7 @@ Similarly, the submodules `dask_tasks`, `mysql_database`, and `parse_embl` can b
 This setup enables the ENA database build code to be implemented on a local small compute resource (for testing) as well as on an HPC machine with more extensive compute resources. 
 As of 2025-02-11, the downloaded ENA dataset is 20 TB, consisting of millions of relatively small gzip'd files; a large storage space and access to tens to hundreds of CPU processors are required to efficiently process all of the ENA dataset. 
 
-The `ena_db_build` workflow has numerous input arguments.
+The `ena_db_tskmgr` workflow has numerous input arguments.
 These can be seen by running: 
 ```
 (ena_db_build) $ ena_db_build -h
@@ -57,7 +57,7 @@ As the name suggests, this command runs a dask workflow using the `distributed` 
 See the "Dask Workflow Overview" section for more details about the task graph. 
 
 ## Full Scale Workflow
-A sample SLURM batch script is provided in `~/batch_scripts/` that is used to run the full scale workflow on the EFI HPC machine. 
+A sample SLURM batch script is provided in `~/batch_scripts/` that is used to run the full scale workflow on the EFI HPC machine.
 
 # Dask Workflow Overview
 
