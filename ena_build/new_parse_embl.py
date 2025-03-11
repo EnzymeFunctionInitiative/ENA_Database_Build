@@ -103,10 +103,8 @@ class Record():
         # https://www.ebi.ac.uk/ena/WebFeat/ and 
         # https://www.insdc.org/submitting-standards/feature-table/#3.3 for
         # more details.
-        # this feels pretty quick and dirty to me...
         cds_line = "".join(self.current_locus_lines).split("/")[0]
-        # there's a whole bunch of annoying "FT ", "CDS " and white space
-        # elements in the cds_line, so get rid of those.
+        # remove "FT ", "CDS " and white space from the cds_line string
         for substring in ["FT ","CDS ","\n"," "]:
             cds_line = cds_line.replace(substring,"")
         # feed the cleaned up version of the cds_line into the CDS_LOC_PATTERN
@@ -122,8 +120,6 @@ class Record():
                     + f"{self.file_path}:\n{self.current_locus_lines}")
             self.current_locus_lines = []
             return 1
-            #temp = self.current_locus_lines
-            #raise InvalidLocusException(temp)
 
         # prep some containers for the parsed results
         uniprotIds = set()
