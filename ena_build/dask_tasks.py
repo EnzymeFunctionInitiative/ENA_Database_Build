@@ -36,7 +36,7 @@ def glob_subdirs(dir_path: str) -> tuple:
     """
     st = time.time()
     dir_list = [
-        dir_.name 
+        dir_path + "/" + dir_.name 
         for dir_ in os.scandir(dir_path) 
         if not dir_.name.startswith('.') 
         and dir_.is_dir()
@@ -69,7 +69,7 @@ def glob_files(dir_path: str) -> tuple:
     st = time.time()
     # grab all file path strings in the given dir_path
     files = [
-        file.name 
+        dir_path + "/" + file.name 
         for file in os.scandir(dir_path) 
         if file.name.endswith('.dat.gz') 
         and file.is_file()
