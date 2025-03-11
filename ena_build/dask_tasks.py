@@ -97,7 +97,7 @@ def process_many_files(
     Given a list of files, process them one at a time. Gather the files written 
     during processing and return that list. 
 
-    PARAMETERS
+    Parameters
     ----------
         file_path_list
             list of strs or pathlib.Path objs, assumed to be associated with
@@ -115,7 +115,7 @@ def process_many_files(
             which result files will be written. A temporary space for fast IO.
             Default = "/scratch"
 
-    RETURNS
+    Returns
     -------
         "process_many_files"
             str, used to ID type of task.
