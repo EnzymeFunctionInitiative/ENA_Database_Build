@@ -12,6 +12,13 @@ module load ena/20241205
 #module load ena/20250211 
 ENA_PATH=$(module load ena 2>&1 | awk '{print $NF}')
 
+SCHEDULER_FILE=/private_stores/gerlt2/users/rbdavid/testing/scheduler_file.json
+db_config=/home/n-z/rbdavid/test_efi.config
+db_name=efi_202412
+output_dir=/home/n-z/rbdavid/Projects/ENA_building/TEST
+scratch_dir=/scratch 
+working_dir=/home/n-z/rbdavid/Projects/ENA_building
+
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
 __conda_setup="$('/home/n-z/rbdavid/Apps/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
@@ -30,24 +37,6 @@ unset __conda_setup
 conda activate ena_db_build
 
 ################################################################################
-
-SCHEDULER_FILE=/private_stores/gerlt2/users/rbdavid/testing/scheduler_file.json
-
-# print some info about nodes
-echo $SLURM_NNODES
-echo $SLURM_NODEID
-echo $SLURM_JOB_NODELIST
-echo $SLURM_TASKS_PER_NODE
-echo $(scontrol show hostnames $SLURM_JOB_NODELIST)
-
-# print some info about resources
-echo $SLURM_CPUS_ON_NODE
-echo $SLURM_JOB_CPUS_PER_NODE
-echo $SLURM_MEM_PER_CPU
-
-# ID the first node in the nodelist
-PrimaryNode=$(echo $(scontrol show hostnames $SLURM_JOB_NODELIST) | awk '{print $1;}')
-echo $PrimaryNode
 
 # empty string to gather process IDs associated with the dask scheduler and worker(s) calls
 dask_pids=""
@@ -72,10 +61,10 @@ sleep 20
 echo "Starting Client Script"
 
 # test the workflow on a small dataset
-#python3 ena_dask_tskmgr --db-config /home/n-z/rbdavid/test_efi.config --db-name efi_202412 --ena-paths /home/n-z/rbdavid/Projects/ENA_building/wgs/public /home/n-z/rbdavid/Projects/ENA_building/sequence /home/n-z/rbdavid/Projects/ENA_building/wgs/suppressed --output-dir /home/n-z/rbdavid/Projects/ENA_building/TEST/ --local-scratch /scratch/ --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file /home/n-z/rbdavid/Projects/ENA_building/testing_tskmgr.log
+#python3 ena_dask_tskmgr --db-config $db_config --db-name $db_name --ena-paths /home/n-z/rbdavid/Projects/ENA_building/wgs/public /home/n-z/rbdavid/Projects/ENA_building/sequence /home/n-z/rbdavid/Projects/ENA_building/wgs/suppressed --output-dir $output_dir --local-scratch $scratch_dir --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file $working_dir/testing_tskmgr.log
 
 # run the workflow on all ENA files in $ENA_PATH
-python3 ena_dask_tskmgr --db-config /home/n-z/rbdavid/test_efi.config --db-name efi_202412 --ena-paths $ENA_PATH/sequence $ENA_PATH/wgs/public  $ENA_PATH/wgs/suppressed  --output-dir /private_stores/gerlt2/users/rbdavid/ENA_build/2025_02_05/ --local-scratch /scratch/ --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file /private_stores/gerlt2/users/rbdavid/ENA_build/2025_02_05/tskmgr.log
+python3 ena_dask_tskmgr --db-config $db_config --db-name $db_name --ena-paths $ENA_PATH/sequence $ENA_PATH/wgs/public  $ENA_PATH/wgs/suppressed  --output-dir $output_dir --local-scratch $scratch_dir --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file $working_dir/tskmgr.log
 
 for pid in $dask_pids
 do
