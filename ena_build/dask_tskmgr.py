@@ -161,6 +161,7 @@ def workflow():
     # tasks
     processing_tasks = 0
     finished_processing_tasks = 0
+    ideal_nFiles = 10
     
     # submit tasks to the client that glob search for the intermediate layer 
     # of subdirs in ENA directory tree
@@ -199,7 +200,10 @@ def workflow():
             # finished task is a glob_files task, so results[1] will be the 
             # list of gzipped files. Break this list down into bite sized 
             # chunks and submit a new task for each chunk. 
-            shards = [results[1][i::args.n_workers] for i in range(args.n_workers)]
+            #shards = [results[1][i::args.n_workers] for i in range(args.n_workers)]
+            nTasks = int(len(results[1])/ideal_nFiles) + 1
+            shards = [results[1][i::nTasks] for i in range(nTasks)]
+
             # list comprehension is submitting a new task to the client, one 
             # for each worker, evenly separating the number of files to be 
             # processed across the tasks. If n_workers is > than files in 
