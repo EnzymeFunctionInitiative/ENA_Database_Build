@@ -149,7 +149,7 @@ def process_many_files(
     else:
         if final_output_dir[-1] != "/":
             final_output_dir += "/"
-        out_diir = final_output_dir + "-".join(matches)
+        out_dir = final_output_dir + "-".join(matches)
         # make the directory
         os.makedirs(out_dir, exist_ok=True)
    
