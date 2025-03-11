@@ -46,9 +46,9 @@ class Record():
     def __init__(self, ID: str, CHR: int, file_path: str):
         """ 
         Instantiate a Record object for a new chromosome block in an EMBL flat
-        file
+        file.
 
-        PARAMETERS
+        Parameters
         ----------
             ID
                 str, EMBL/ENA accession ID for the chromosome
@@ -56,7 +56,7 @@ class Record():
                 int, 0 if chromosome structure/type is "linear" or 1 if 
                 "circular"
 
-        ATTRIBUTES
+        Attributes
         ----------
             ID
                 str, EMBL/ENA accession ID for the chromosome
@@ -172,7 +172,7 @@ class Record():
         any loci that are associated with a UniProtId out to a tab separated
         file
 
-        PARAMETERS
+        Parameters
         ----------
             db_cnx
                 mysql_database.IDMapper connection object
@@ -283,7 +283,7 @@ def process_file(
     a UniprotID via a database reverse lookup. Write to output_file the
     organization of the chromosome's gene loci.
 
-    PARAMETERS
+    Parameters
     ----------
         file_path
             string or pathlib.Path, assumed to be a gzipped embl flatfile.
@@ -294,7 +294,7 @@ def process_file(
             string or pathlib.Path, file to be written with results from the
             function
 
-    RETURN
+    Return
     ------
         output_file
             string or pathlib.Path, file written to with results; if no 
