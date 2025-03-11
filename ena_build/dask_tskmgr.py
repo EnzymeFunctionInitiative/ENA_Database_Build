@@ -237,10 +237,9 @@ def workflow():
     with open(args.output_dir + '/ena.tab','w') as out:
         # loop over the sorted tab files
         for tab in tab_files:
-            # open the tab file and write each line to the out file
+            # open the tab file and write it out to the out file
             with open(tab,'r') as tsv:
-                for line in tsv:
-                    out.write(line)
+                shutil.copyfileobj(tsv, out)
 
     main_logger.info("Catenated all individual tabs into" 
         + f" {args.output_dir + '/ena.tab'}.")
