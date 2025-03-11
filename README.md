@@ -5,7 +5,7 @@ Code used to process the European Nucleotide Archive (ENA) dataset, gathering ch
 
 ```
 # create the env to be used to run the workflow
-conda create -n ena_db_build python=3.12
+conda create -n ena_db_build python=3.10
 conda activate ena_db_build
 conda config --add channels conda-forge
 
@@ -57,7 +57,8 @@ As the name suggests, this command runs a dask workflow using the `distributed` 
 See the "Dask Workflow Overview" section for more details about the task graph. 
 
 ## Full Scale Workflow
-A sample SLURM batch script is provided in `~/batch_scripts/` that is used to run the full scale workflow on the EFI HPC machine.
+A sample SLURM batch script is provided in `~/batch_scripts/` that could be used to run the full scale workflow on the EFI HPC machine.
+In the provided batch script, paths to various directories and files are left ambiguous.
 
 # Dask Workflow Overview
 
