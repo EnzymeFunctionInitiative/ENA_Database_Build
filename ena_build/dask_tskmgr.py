@@ -10,7 +10,6 @@ import time
 import dask
 from distributed import Client, as_completed
 
-#import build_ena_db
 import mysql_database
 from dask_tasks import glob_subdirs, glob_files, process_many_files
 
