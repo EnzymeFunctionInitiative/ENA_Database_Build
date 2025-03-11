@@ -108,7 +108,7 @@ def parse_config(file_path):
 ###############################################################################
 
 def workflow():
-    """ run the dask workflow to parse the ENA dataset """
+    """ Run the Dask workflow to parse the ENA dataset. """
     
     # parse input arguments
     args = parse_input_arguments()
