@@ -119,7 +119,7 @@ class Record():
             print("!!! FT CDS line block failed to be processed. "
                     + f"{self.file_path}:\n{self.current_locus_lines}")
             self.current_locus_lines = []
-            return 1
+            return
 
         # prep some containers for the parsed results
         uniprotIds = set()
@@ -159,7 +159,7 @@ class Record():
         
         # refresh the current_locus_lines string.
         self.current_locus_lines = []
-        return 0
+        return
 
     def process_record(self, db_cnx, output_file):
         """
@@ -316,10 +316,7 @@ def process_file(
                 # check if the enaRecord.current_locus_lines is full
                 if enaRecord.current_locus_lines:
                     # parse the string and add the locus to the loci_dict
-                    rt = enaRecord.add_locus()
-                    ## check for non-zero return code
-                    #if rt != 0:
-                    #    # do something
+                    enaRecord.add_locus()
 
                 # check if the enaRecord object was filled with info before
                 # processing it
@@ -366,10 +363,7 @@ def process_file(
                 # object.
                 if enaRecord.current_locus_lines:
                     # process the CDS block string
-                    rt = enaRecord.add_locus()
-                    ## check for non-zero return code
-                    #if rt != 0:
-                    #    # do something
+                    enaRecord.add_locus()
                 
                 # check for new gene coding sequence blocks
                 if line.startswith("FT   CDS "):
