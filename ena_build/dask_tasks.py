@@ -35,7 +35,14 @@ def glob_subdirs(dir_path: str) -> tuple:
             same as given input
     """
     st = time.time()
-    return "glob_subdirs", glob.glob(dir_path + "/*/"), time.time() - st, dir_path
+    dir_list = [
+        dir_ 
+        for dir_ in os.scandir(dir_path) 
+        if not dir_.name.startswith('.') 
+        and dir_.is_dir()
+    ]
+    return "glob_subdirs", dir_list, time.time() - st, dir_path
+    #return "glob_subdirs", glob.glob(dir_path + "/*/"), time.time() - st, dir_path
 
 
 def glob_files(dir_path: str) -> tuple:
