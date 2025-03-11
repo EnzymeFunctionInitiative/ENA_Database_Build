@@ -15,68 +15,67 @@ import new_parse_embl
 
 def glob_subdirs(dir_path: str) -> tuple:
     """
-    search for subdirectories in the provided directory path
+    Search for subdirectories in the provided directory path.
 
     Parameters
     ----------
         dir_path
-            string, global or local path within which the search for subdirs
+            str, global or local path within which the search for subdirs
             will occur. 
 
     Returns
     -------
         "glob_subdirs"
-            string used to ID type of task
-        subdirs
-            list of strings corresponding to the found subdirs
+            str, used to ID type of task.
+        subdir_list
+            list of strs, each element corresponding to a found subdir.
         `time.time() - st`
-            elapsed time for this task, units: seconds
+            float, elapsed time for this task, units: seconds.
         dir_path
-            same as given input
+            str, same as given input.
     """
     st = time.time()
-    dir_list = [
+    # Grab all subdirectory path strings in the given dir_path
+    subdir_list = [
         dir_path + "/" + dir_.name 
         for dir_ in os.scandir(dir_path) 
         if not dir_.name.startswith('.') 
         and dir_.is_dir()
     ]
-    return "glob_subdirs", dir_list, time.time() - st, dir_path
-    #return "glob_subdirs", glob.glob(dir_path + "/*/"), time.time() - st, dir_path
+    return "glob_subdirs", subdir_list, time.time() - st, dir_path
 
 
 def glob_files(dir_path: str) -> tuple:
     """
-    return list of files matching the search string
+    Return list of files matching the search string.
     
     Parameters
     ----------
         dir_path
-            string, global or local path within which the search for subdirs
-            will occur.
+            str, global or local path within which the search for subdirs will
+            occur.
 
     Returns
     -------
         "glob_files"
-            string used to ID type of task
+            str, used to ID type of task.
         files
-            list of strings corresponding to the found files
+            list of strs, each element corresponding to a found file.
         `time.time() - st`
-            elapsed time for this task, units: seconds
+            float, elapsed time for this task, units: seconds.
         dir_path
-            same as given input
+            str, same as given input.
     """
     st = time.time()
-    # grab all file path strings in the given dir_path
+    # Grab all file path strings in the given dir_path
     files = [
         dir_path + "/" + file.name 
         for file in os.scandir(dir_path) 
         if file.name.endswith('.dat.gz') 
         and file.is_file()
     ]
-    #files = glob.glob(dir_path + "/*dat.gz")
     
-    # only a subset of data files in the ENA sequence/ subdir are of interest 
+    # Only a subset of data files in the ENA sequence/ subdir are of interest 
     # to us. As far as I know, the second underscored section of the file name
     # denote the origin species type, which is what we need to consider.
     # NOTE: THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
@@ -86,9 +85,6 @@ def glob_files(dir_path: str) -> tuple:
         files = [file_ for file_ in files if pattern.search(file_)]
 
     return "glob_files", files, time.time() - st, dir_path
-    ## could gather file size as well as name to enable sorting the files from
-    ## largest to smallest; potential to optimize task prioritization
-    #return "glob_files", [(file, os.path.getsize(file)) for file in files], time.time() - st, dir_path
 
 
 def process_many_files(
@@ -98,39 +94,38 @@ def process_many_files(
         final_output_dir: str,
         temp_output_dir: str = "/scratch"):
     """
-    given a list of files, process them one at a time. Gather the files written 
+    Given a list of files, process them one at a time. Gather the files written 
     during processing and return that list. 
 
     PARAMETERS
     ----------
         file_path_list
-            list of strings or pathlib.Path objs, assumed to be associated with
+            list of strs or pathlib.Path objs, assumed to be associated with
             gzipped EMBL/GenBank flat files. 
         database_params 
             dict or configparser.ConfigParser obj. necessary keys or 
-            attributes are "user", "password", "host", "port"
+            attributes are "user", "password", "host", and "port".
         db_name
-            string, name of the EFI database to be used to perform
-            queries. 
+            str, name of the EFI database to be used to perform queries.
         final_output_dir
-            string, global path for storage space on the HPC filesystem within 
+            str, global path for storage space on the HPC filesystem within 
             which result files will be moved to.
         temp_output_dir
-            string, global path for storage space on the compute resource within
-            which result files will be  written. A temporary space for fast IO.
+            str, global path for storage space on the compute resource within
+            which result files will be written. A temporary space for fast IO.
             Default = "/scratch"
 
     RETURNS
     -------
         "process_many_files"
-            string used to ID type of task
+            str, used to ID type of task.
         final_tab_files
-            list of strings corresponding to the tsv files written during the
-            task, using the final_output_dir path
+            list of strs, corresponding to the tsv files written during the
+            task, using the final_output_dir path.
         `time.time() - st`
-            elapsed time for this task, units: seconds
+            float, elapsed time for this task, units: seconds.
         file_path_list
-            same as given input
+            str, same as given input.
 
     """
     st = time.time()
@@ -143,7 +138,7 @@ def process_many_files(
     dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequence)\/(\w*)")
     # use regex to match the file name stem from the given file path; will 
     # create a list of len 1. 
-    file_pattern= re.compile(r"\/(\w*)\.dat\.gz")
+    file_pattern = re.compile(r"\/(\w*)\.dat\.gz")
 
     # apply the regex on the first file string in file_path_list, only grab 
     # groups that were successfully matched. 
@@ -151,7 +146,7 @@ def process_many_files(
     # the same directory; this will be a bug if files from different source dirs
     # are included in file_path_list
     matches = [elem for elem in dir_pattern.findall(file_path_list[0])[0] if elem]
-    # create an output_dir string that easily maps to the files being parsed
+    # create an output_dir string that easily maps to the files being parsed.
     # format will be e.g. "wgs-public-wds" or "sequence-con"
     if temp_output_dir:
         if temp_output_dir[-1] != "/":
@@ -174,15 +169,16 @@ def process_many_files(
         start_time = time.time()
         # grab the stem of the file name to use in writing results
         fn_name = file_pattern.findall(file_path)[0]
+        tab_file = out_dir + f"/{fn_name}.tab"
         # process the file
-        tab_file = new_parse_embl.process_file(
+        ret_code = new_parse_embl.process_file(
             file_path, 
             db_connection, 
-            out_dir + f"/{fn_name}.tab"
+            tab_file
         )
         stop_time = time.time()
-        # if the file does not return any results, no file will be written so 
-        # check to see if the expected file exists.
+        # if the process_file() call does not output any results, no tab_file 
+        # will be written so check to see if the expected file exists.
         if os.path.isfile(tab_file):
             tab_files.append(tab_file)
     
