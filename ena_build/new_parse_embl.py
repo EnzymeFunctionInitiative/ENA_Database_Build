@@ -333,7 +333,6 @@ def process_file(
                 # create the new Record object, currently empty except for the 
                 # ID and CHR fields
                 enaRecord = Record(ID = ID, CHR = CHR, file_path = file_path)
-                continue
 
             # only interested in parsing Records associated with the Fungi 
             # kingdom when considering genomes from Eukaryota domain. 
@@ -344,7 +343,6 @@ def process_file(
                     and " Fungi" not in line):
                 #print(f"!!! Found non-fungi eukaryote in {file_path}: {enaRecord.ENA_ID}, {line.strip()}")
                 enaRecord = Record(ID = "", CHR = -1, file_path = "")
-                continue
 
             # check whether the current enaRecord object has a True-like ENA_ID
             # attribute. If it doesn't, then any lines can be skipped since the
@@ -369,7 +367,6 @@ def process_file(
                 if line.startswith("FT   CDS "):
                     # start the Record.current_locus_lines string
                     enaRecord.current_locus_lines.append(line)
-                    continue
             
             # At this point, the only lines remaining are "FT\s+" lines that 
             # may be associated with a CDS block or not. Need to check if the 
