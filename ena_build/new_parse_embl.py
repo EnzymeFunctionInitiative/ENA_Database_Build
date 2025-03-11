@@ -77,7 +77,7 @@ class Record():
                   being a subdict with "DIR", "START", "END", "uniprotIds", and
                   "proteinIds" keys and associated values for the locus.
             current_locus_lines
-                str, used to gather all lines associated with the 
+                list, used to gather all lines associated with the 
                 currently-being parsed CDS block.
 
         """
@@ -88,7 +88,7 @@ class Record():
         self.uniprotIds = set()
         self.proteinIds = set()
         self.loci_dict = {}
-        self.current_locus_lines = ""
+        self.current_locus_lines = []
 
     def add_locus(self):
         """
@@ -104,7 +104,7 @@ class Record():
         # https://www.insdc.org/submitting-standards/feature-table/#3.3 for
         # more details.
         # this feels pretty quick and dirty to me...
-        cds_line = self.current_locus_lines.split('/')[0]
+        cds_line = "".join(self.current_locus_lines).split("/")[0]
         # there's a whole bunch of annoying "FT ", "CDS " and white space
         # elements in the cds_line, so get rid of those.
         for substring in ["FT ","CDS ","\n"," "]:
@@ -118,9 +118,9 @@ class Record():
             DIR = 0 if "complement" in cds_line else 1
         # if the cds_line fails to parse, end the method early.
         else:
-            self.current_locus_lines = ""
             print("!!! FT CDS line block failed to be processed. "
                     + f"{self.file_path}:\n{self.current_locus_lines}")
+            self.current_locus_lines = []
             return 1
             #temp = self.current_locus_lines
             #raise InvalidLocusException(temp)
@@ -131,7 +131,7 @@ class Record():
 
         # Loop over each line in the input locus_lines to find the important
         # optional qualifier lines for UniprotId and proteinId.
-        for line in self.current_locus_lines.split("\n"):
+        for line in self.current_locus_lines:
             # throw the line into the XREF_SEARCH_PATTERN
             search_results = XREF_SEARCH_PATTERN.findall(line)
             # make sure the pattern was matched, otherwise move on
@@ -162,7 +162,7 @@ class Record():
             self.count += 1
         
         # refresh the current_locus_lines string.
-        self.current_locus_lines = ""
+        self.current_locus_lines = []
         return 0
 
     def process_record(self, db_cnx, output_file):
@@ -365,9 +365,9 @@ def process_file(
                 # since we've hit the start of a new feature block, we need to
                 # check that the previous block was an "FT   CDS" block. Do so
                 # by checking whether the Record.current_locus_lines is an
-                # empty string. If it isn't, then the lines for a new locus
-                # have been fully gathered and need to be processed into a 
-                # Locus object.
+                # empty list. If it isn't, then the lines for a new locus have
+                # been fully gathered and need to be processed into a Locus
+                # object.
                 if enaRecord.current_locus_lines:
                     # process the CDS block string
                     rt = enaRecord.add_locus()
@@ -378,14 +378,14 @@ def process_file(
                 # check for new gene coding sequence blocks
                 if line.startswith("FT   CDS "):
                     # start the Record.current_locus_lines string
-                    enaRecord.current_locus_lines = line
+                    enaRecord.current_locus_lines.append(line)
                     continue
             
             # At this point, the only lines remaining are "FT\s+" lines that 
             # may be associated with a CDS block or not. Need to check if the 
             # Record.current_locus_lines is not empty.
             elif enaRecord.current_locus_lines and line.startswith("FT    "):
-                enaRecord.current_locus_lines += line
+                enaRecord.current_locus_lines.append(line)
  
     # done parsing file, but haven't finished parsing the last Record object
     enaRecord.process_record(database_connection, output_file)
