@@ -36,7 +36,7 @@ def glob_subdirs(dir_path: str) -> tuple:
     """
     st = time.time()
     dir_list = [
-        dir_ 
+        dir_.name 
         for dir_ in os.scandir(dir_path) 
         if not dir_.name.startswith('.') 
         and dir_.is_dir()
@@ -68,7 +68,13 @@ def glob_files(dir_path: str) -> tuple:
     """
     st = time.time()
     # grab all file path strings in the given dir_path
-    files = glob.glob(dir_path + f"/*dat.gz")
+    files = [
+        file.name 
+        for file in os.scandir(dir_path) 
+        if file.name.endswith('.dat.gz') 
+        and file.is_file()
+    ]
+    #files = glob.glob(dir_path + "/*dat.gz")
     
     # only a subset of data files in the ENA sequence/ subdir are of interest 
     # to us. As far as I know, the second underscored section of the file name
