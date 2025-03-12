@@ -8,7 +8,10 @@
 
 date
 
-# NEED TO  INITIALIZE THE CONDA ENVIRONMENT SO THE ena_db_build env IS IN PATH
+echo $EBROOTENA		# global path to the root dir of the ENA dataset
+echo $EBVERSIONENA	# version string of the ENA dataset
+
+# NEED TO  INITIALIZE THE CONDA ENVIRONMENT SO THE ena_db_build ENV IS IN PATH
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
 __conda_setup="$('/path/to/conda/installation/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
@@ -24,15 +27,13 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-SCHEDULER_FILE="$PWD"/scheduler_file.json
-output_dir="$PWD"/TEST
-scratch_dir=/scratch 
-working_dir="$PWD"
-ENA_PATH=/path/to/root/dir/of/the/ENA/dataset
-DB_CONFIG=/path/to/mysql/webserver/config/file
-DB_NAME=efi_202412
-
 conda activate ena_db_build
+
+working_dir=$PWD
+scratch_dir=/scratch/$EBVERSIONENA
+output_dir=$PWD/TEST
+DB_CONFIG=/path/to/mysql/webserver/config/file
+DB_NAME=efi_202412	# or the equivalent version string for the relevant MySQL EFI Database to be queried
 
 ################################################################################
 
@@ -40,6 +41,7 @@ conda activate ena_db_build
 dask_pids=""
 
 echo "Spinning up the Scheduler"
+SCHEDULER_FILE=$working_dir/scheduler_file.json
 dask scheduler --no-dashboard --no-jupyter --no-show --scheduler-file ${SCHEDULER_FILE} --interface 'eth0' > dask_scheduler.out 2>&1 &
 dask_pids="$dask_pids $!"
 
@@ -49,9 +51,9 @@ srun -n 62 \
 	dask worker --no-dashboard --no-nanny --reconnect --nthreads 1 --nworkers 1 --interface 'eth0' --scheduler-file ${SCHEDULER_FILE} > dask_worker.out 2>&1 &
 dask_pids="$dask_pids $!"
 
-# run the workflow on all ENA files in $ENA_PATH
+# run the workflow on all ENA files in $EBROOTENA
 echo "Starting Client Script"
-python3 ena_dask_tskmgr --db-config $DB_CONFIG --db-name $DB_NAME --ena-paths $ENA_PATH/sequence $ENA_PATH/wgs/public  $ENA_PATH/wgs/suppressed  --output-dir $output_dir --local-scratch $scratch_dir --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file $working_dir/tskmgr.log
+python3 ena_dask_tskmgr --db-config $DB_CONFIG --db-name $DB_NAME --ena-paths $EBROOTENA/sequence $EBROOTENA/wgs/public  $EBROOTENA/wgs/suppressed  --output-dir $output_dir --local-scratch $scratch_dir --scheduler-file ${SCHEDULER_FILE} --n-workers 62 --tskmgr-log-file $working_dir/tskmgr.log
 
 for pid in $dask_pids
 do
