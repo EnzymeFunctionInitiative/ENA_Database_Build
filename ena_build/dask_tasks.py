@@ -7,7 +7,7 @@ import os
 import shutil
 
 import mysql_database
-import new_parse_embl
+import parse_embl
 
 ###############################################################################
 # Functions used as Dask Tasks
@@ -171,7 +171,7 @@ def process_many_files(
         fn_name = file_pattern.findall(file_path)[0]
         tab_file = out_dir + f"/{fn_name}.tab"
         # process the file
-        ret_code = new_parse_embl.process_file(
+        parse_embl.process_file(
             file_path, 
             db_connection, 
             tab_file
