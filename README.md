@@ -1,7 +1,10 @@
 # ENA_Database_Build
-Code used to process the European Nucleotide Archive (ENA) dataset, gathering chromosomal context for genes that map to UniProtKB accession IDs.
+Python workflow used to process the European Nucleotide Archive (ENA) dataset, gathering chromosome neighborhood context for genes that map to UniProtKB accession IDs.
 
 # Installation
+This workflow code expects an installation of a conda distribution, such as Miniconda. 
+To install Miniconda, follow https://www.anaconda.com/docs/getting-started/miniconda/install instructions.
+Once conda has been installed, follow the below instructions to create the `ena_db_build` environment that can be used to run the workflow.
 
 ```
 # create the env to be used to run the workflow
@@ -19,10 +22,10 @@ python3 -m pip install .
 
 # Running the Dask Workflow
 
-Having followed the above installation instructions and with the `ena_db_build` environment active, the `ena_dask_tskmgr` command is executable from the command line from anywhere. 
+Having followed the above installation instructions and with the `ena_db_build` environment active, the `ena_dask_tskmgr` command is executable on the command line from anywhere. 
 Similarly, the submodules `dask_tasks`, `mysql_database`, and `parse_embl` can be imported within any interactive or scipted python code. 
 This setup enables the ENA database build code to be implemented on a local small compute resource (for testing) as well as on an HPC machine with more extensive compute resources. 
-As of 2025-02-11, the downloaded ENA dataset is 20 TB, consisting of millions of relatively small gzip'd files; a large storage space and access to tens to hundreds of CPU processors are required to efficiently process all of the ENA dataset. 
+As of 2025-02-11, the downloaded ENA dataset is ~20 TB, consisting of millions of relatively small gzip'd files; a large storage space and access to tens to hundreds of CPU processors are required to efficiently process all of the ENA dataset. 
 
 The `ena_db_tskmgr` workflow has numerous input arguments.
 These can be seen by running: 
@@ -57,8 +60,11 @@ As the name suggests, this command runs a dask workflow using the `distributed` 
 See the "Dask Workflow Overview" section for more details about the task graph. 
 
 ## Full Scale Workflow
-A sample SLURM batch script is provided in `~/batch_scripts/` that could be used to run the full scale workflow on the EFI HPC machine.
-In the provided batch script, paths to various directories and files are left ambiguous.
+A sample SLURM batch script is provided in `~/batch_scripts/` that can be used to run the full scale workflow on the EFI HPC machine.
+Also, the `env_setup.sh` script is provided within which all important environment variables called within the batch script are defined. 
+Edit the environment script for your specific compute resource. 
+
+A sample MySQL configuration file is provided with the necessary input parameters; update this file to match the access configuration for your MySQL server.
 
 # Dask Workflow Overview
 
