@@ -278,7 +278,7 @@ class Locus():
 # Parsing an EMBL flat file
 ###############################################################################
 
-def process_id_line(line: str, file_path: str) -> Tuple[str, int]:
+def process_id_line(line: str, file_path: str) -> tuple[str, int]:
     """
     Given the line, parse it as if it is an "ID" line from the embl flat file.
 
