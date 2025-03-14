@@ -167,10 +167,10 @@ class Record():
 
     def process_record(self, db_cnx, output_file) -> None:
         """
-        given a Record object, do one final check for adding a locus then 
+        Given a Record object, do one final check for adding a locus then 
         process the loci in the Record object, writing info associated with 
         any loci that are associated with a UniProtId out to a tab separated
-        file
+        file.
 
         Parameters
         ----------
@@ -184,11 +184,11 @@ class Record():
         # before doing any processing, check to make sure self.ena_id is not an
         # empty string; empty string for self.ena_id is used to denote Records
         # that should not be processed.
-        if not self.ena_id:
+        if not self.check_ena_id():
             return
 
         # check to see if the Record.current_locus_lines is not empty
-        if self.current_locus_lines:
+        if self.check_locus_lines():
             self.add_locus()
         
         # use self.proteinIds set as input to the MySQL Database query
@@ -225,6 +225,14 @@ class Record():
                 # append to output_file
                 with open(output_file, "a") as out_tab:
                     out_tab.write(f"{self.ena_id}\t{id_}\t{locus_count}\t{self.chr_struct}\t{locus.direction}\t{locus.start}\t{locus.end}\n")
+
+    def check_ena_id(self):
+        """ Check whether the ena_id attribute is an empty string or not """
+        return bool(self.ena_id)
+
+    def check_locus_lines(self):
+        """ Check whether the current_locus_lines is an empty list or not """
+        return bool(self.current_locus_lines)
 
 
 ###############################################################################
@@ -365,13 +373,13 @@ def process_file(
             # (and associated Locus) is ready to be processed. 
             elif line.startswith("ID   "):
                 # check if the enaRecord.current_locus_lines is full
-                if enaRecord.current_locus_lines:
+                if enaRecord.check_locus_lines():
                     # parse the string and add the locus to the loci_dict
                     enaRecord.add_locus()
 
                 # check if the enaRecord object was filled with info before
                 # processing it
-                if enaRecord.ena_id:
+                if enaRecord.check_ena_id():
                     # process the previous Record's data
                     enaRecord.process_record(
                         database_connection,
@@ -402,7 +410,7 @@ def process_file(
             # check whether the current enaRecord object has a True-like ena_id
             # attribute. If it doesn't, then any lines can be skipped since the
             # active Record will not be parsed into a file.
-            elif not enaRecord.ena_id:
+            elif not enaRecord.check_ena_id():
                 continue
 
             # check for the start of _any_ chromosome feature block. This 
@@ -414,7 +422,7 @@ def process_file(
                 # empty list. If it isn't, then the lines for a new locus have
                 # been fully gathered and need to be processed into a Locus
                 # object.
-                if enaRecord.current_locus_lines:
+                if enaRecord.check_locus_lines():
                     # process the CDS block string
                     enaRecord.add_locus()
                 
@@ -426,7 +434,7 @@ def process_file(
             # At this point, the only lines remaining are "FT\s+" lines that 
             # may be associated with a CDS block or not. Need to check if the 
             # Record.current_locus_lines is not empty.
-            elif enaRecord.current_locus_lines and line.startswith("FT    "):
+            elif enaRecord.check_locus_lines() and line.startswith("FT    "):
                 enaRecord.current_locus_lines.append(line)
  
     # done parsing file, but haven't finished parsing the last Record object
