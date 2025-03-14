@@ -23,7 +23,7 @@ unset __conda_setup
 WORKING_DIR=$PWD
 OUTPUT_DIR=$PWD/TEST
 SCRATCH_DIR=/scratch/$EBVERSIONENA
-DB_CONFIG=/path/to/mysql/webserver/config/file
+DB_CONFIG=sample_mysql.config
 DB_NAME=efi_202412	# or the equivalent version string for the relevant MySQL EFI Database to be queried
 N_WORKERS=$((SLURMNTASKS - 2)) # scheduler and client script both need at least one cpu each.
 
