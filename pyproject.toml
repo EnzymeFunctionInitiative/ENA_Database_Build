@@ -1,6 +1,6 @@
 [project]
 name = "ena_build"
-version = "0.0.1"
+version = "1.0.0"
 authors = [
   { name="Russell B Davidson", email="rbdavid@illinois.edu" },
 ]
@@ -8,7 +8,7 @@ maintainers = [
   { name="Russell B Davidson", email="rbdavid@illinois.edu" },
 ]
 description = "Pipeline code to process the ENA database"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
   "configparser", 
   "mysql-connector-python", 
