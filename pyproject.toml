@@ -1,0 +1,30 @@
+[project]
+name = "ena_build"
+version = "1.0.0"
+authors = [
+  { name="Russell B Davidson", email="rbdavid@illinois.edu" },
+]
+maintainers = [
+  { name="Russell B Davidson", email="rbdavid@illinois.edu" },
+]
+description = "Pipeline code to process the ENA database"
+requires-python = ">=3.10"
+dependencies = [
+  "configparser", 
+  "mysql-connector-python", 
+  "dask",
+]
+
+[project.urls]
+Repository = "https://github.com/EnzymeFunctionInitiative/ENA_Database_Build"
+
+[project.scripts]
+ena_dask_tskmgr = "dask_tskmgr:workflow"
+
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "ena_build"}
+
