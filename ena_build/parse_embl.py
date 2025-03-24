@@ -28,11 +28,25 @@ XREF_SEARCH_STRS = [
 # does not match either search strings, then an empty list will be returned. 
 XREF_SEARCH_PATTERN = re.compile("|".join(XREF_SEARCH_STRS))
 
-# If the line matches this search string, then the a list of a tuple of 
-# len 2 will be returned. The zeroth and first elements will be the START
-# and END values for the sequence, respectively. Else, the regex search 
-# will return an empty list. 
-CDS_LOC_PATTERN = re.compile(r"(\d+)\..*\.\>?(\d+)")
+# If the line matches this search string, then a list of tuples with integer 
+# substrings will be returned. Each tuple element in the list is one of the 
+# location ranges for the associated ID line. Else, the regex search will 
+# return an empty list. 
+# See https://www.insdc.org/submitting-standards/feature-table/#3.4 for 
+# documentation on Location descriptors and operators. 
+## NOTE: The below pattern does not parse e.g. `102`, `102.110`, `102^112`, 
+# or any combination of these "ranges" in location substrings. These are 
+# uninteresting for our purposes but it is important to note. 
+CDS_LOC_PATTERN = re.compile(r"(\d+)\.\.\>?(\d+)")
+
+## original regex pattern:
+#CDS_LOC_PATTERN = re.compile(r"(\d+)\..*\.\>?(\d+)")
+## grabs the outer two numbers separated by any characters
+## ChatGPT was used to refine the below regex pattern. 
+#CDS_LOC_PATTERN = re.compile(r"(?<![A-Za-z0-9]\.)\b\d+\b")
+## Uses a negative lookbehind for alphanumeric character followed by a period.
+## The \b\d+\b captures any whole "word" numbers, reports these matches in a 
+## list of ints
 
 # If the line matches this search string, this indicates the start of a new 
 # feature block. There are a large number of lines that could be identified
