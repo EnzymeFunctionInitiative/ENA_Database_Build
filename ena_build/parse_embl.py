@@ -124,15 +124,24 @@ class Record():
         cds_line = "".join(self.current_locus_lines).split("/")[0]
         # remove "FT ", "CDS " and white space from the cds_line string
         for substring in ["FT ","CDS ","\n"," "]:
-            cds_line = cds_line.replace(substring,"")
-        # feed the cleaned up version of the cds_line into the CDS_LOC_PATTERN
-        cds_result = CDS_LOC_PATTERN.findall(cds_line)
+            loc_substring = cds_line.replace(substring,"")
+        # feed the loc_substring into the CDS_LOC_PATTERN to get a list of 
+        # tuples of strs associated with the "x..y" formatted ranges. 
+        loc_ranges = CDS_LOC_PATTERN.findall(loc_substring)
         # make sure the pattern was matched
-        if cds_result:
+        if loc_ranges:
+            # convert the cds_result list of tuple of strs into list of tuple
+            # of ints
+            loc_ranges = [tuple(int(i) for i in tup) for tup in loc_ranges]
             # assign the matched groups to the Locus object's attributes
-            start, end = cds_result[0]
+            start, end = process_location_ranges(
+                loc_ranges, 
+                self.chr_struct, 
+                self.length
+            )
             direction = 0 if "complement" in cds_line else 1
-        # if the cds_line fails to parse, end the method early.
+        # if the cds_line fails to parse, end the method early and clean the
+        # locus lines list.
         else:
             print("!!! FT CDS line block failed to be processed. "
                     + f"{self.file_path}:\n{self.current_locus_lines}")
@@ -338,6 +347,62 @@ def process_id_line(line: str, file_path: str) -> tuple[str, int]:
                 + f"{file_path}:{line.strip()}")
 
     return ena_id, chr_struct
+
+
+def process_location_ranges(
+        loc_ranges: list[tuple[int,int]],
+        linear_chromosome: bool,
+        chromosome_length: int) -> list:
+    """
+    Given a list of sequence position ranges, determine the real start and end
+    positions for the associated locus. This takes into account the chromosome
+    structure and length since circular chromosome structures complicate the 
+    matter.
+
+    Parameters
+    ----------
+        loc_ranges
+            list of tuples of ints, each tuple is a pair of positions. 
+        linear_chromosome
+            boolean or equivalent, signifies if the ranges were pulled from a 
+            linear chromosome structure or not. 
+        chromosome_length
+            int, length of the full chromosome; used to determine if a range 
+            spans the relative start position of a circular chromosome
+
+    Returns
+    -------
+        start, end
+            ints, the appropriate start and stop indices for the given range(s)
+            and chromosome structure type and length.
+    """
+    if linear_chromosome:
+        # handle the ranges assuming the hard boundary conditions of 1 and 
+        # chromosome_length
+        flattened_ranges = sum(loc_ranges,())
+        return min(flattened_ranges), max(flattened_ranges)
+    else:
+        # sequence position indices are 1-indexed rather than 0-indexed
+        # loop over all ranges to see if a the 1 and the last chromosome length
+        # is in one of the ranges.
+        passes_length = [
+            chromosome_length in range(elem[0],elem[1]+1) 
+            for elem in loc_ranges
+        ]
+        includes_start = [
+            1 in range(elem[0],elem[1]+1) 
+            for elem in loc_ranges
+        ]
+        if True in passes_length and True in includes_start:
+            # found an instance where the locus spans the chromosome length, 
+            # assume that the join components (required for these instances) 
+            # are in ascending order until the relative start happens
+            return loc_ranges[0][0], loc_ranges[-1][1]
+        else:
+            # no range passes through the chromosome_length so treat like a 
+            # linear sequence
+            flattened_ranges = sum(loc_ranges,())
+            return min(flattened_ranges), max(flattened_ranges)
 
 
 def process_file(
