@@ -17,6 +17,7 @@ def test_id_line_regex():
     line = "FT   source          1..478325"
     assert parse_embl.ENA_ID_PATTERN.findall(line) == []
 
+
 def test_FT_block_line_regex():
     """ Testing wrapper func for the Feature Key line pattern. """
     lines = """ID   ABZA01000001; SV 1; linear; genomic DNA; WGS; PRO; 478325 BP.
@@ -33,6 +34,7 @@ FT   CDS             <1..1701"""
                for line in lines.split('\n')]
     assert matches == ground_truth
 
+
 def test_XREF_lines_regex():
     """ Testing wrapper func for the XREF line patterns. """
     lines = """FT   CDS             <1..1701
@@ -48,6 +50,7 @@ FT                   /translation="MLKYNVSDDDGKMDPSVKHWDDTIYYANCHNFRTAVTGMTLLIV"
     matches = [True if parse_embl.XREF_SEARCH_PATTERN.findall(line) else False for line in lines.split('\n')]
     assert matches == ground_truth
 
+
 def test_location_lines_regex():
     """ Testing wrapper func for the Location line patterns. """
     lines = """FT   CDS             J00194.1:100..202
@@ -59,6 +62,7 @@ FT   CDS             1..>888
 FT   CDS             102.110    # we ignore these
 FT   CDS             123^124    # we ignore these
 FT   CDS             join(12..78,134..202)
+FT   CDS             join(12..78,1..3)
 FT   CDS             complement(34..126)
 FT   CDS             complement(join(2691..4571,4918..5163))
 FT   CDS             complement(join(1,2691..4571,4918..5163))
@@ -74,6 +78,7 @@ FT   CDS             join(1..100,J00194.1:100..202) """
         [],
         [],
         [('12','78'), ('134','202')],
+        [('12','78'), ('1','')],
         [('34','126')],
         [('2691','4571'),('4918','5163')],
         [('2691','4571'),('4918','5163')],
