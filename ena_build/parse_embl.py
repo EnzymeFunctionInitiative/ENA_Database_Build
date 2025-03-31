@@ -8,9 +8,17 @@ import gzip
 ###############################################################################
 
 # create the "ID " search pattern.
-# search for ID lines, group 0 and 1 map to ID and type of chromosome
-# structure (circular or linear or nonstandard strings like XXX);
-ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);") 
+# search for ID lines, where group 0 maps to the ENA chromosome ID, group 1 
+# maps to the type of chromosome structure (circular or linear or nonstandard 
+# strings like XXX), and group 2 maps to the chromosome entry's length in 
+# nucleotide base pairs .
+# This is a very rigid pattern, creating a list of a tuple of len 3.
+ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);.*;\s(\d+)\sBP") 
+
+# much less rigid, but creates a list of two tuples of len 3 each. 
+#ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);|(\d+)\sBP") 
+## original ID line regex pattern, creating a list of a tuple of len 2.
+#ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);") 
 
 # search for "protein_id" FT lines, group 0 maps to the foreign ID string. 
 # search for UniProtKB/... database accession ID lines, group 1 matches the
@@ -57,7 +65,12 @@ FT_START_PATTERN = re.compile(r"^FT\s\s\s[a-zA-Z0-9-]")
 ###############################################################################
 
 class Record():
-    def __init__(self, ena_id: str, chr_struct: int, file_path: str) -> None:
+    def __init__(
+            self, 
+            ena_id: str, 
+            chr_struct: int, 
+            chr_len: int, 
+            file_path: str) -> None:
         """ 
         Instantiate a Record object for a new chromosome block in an EMBL flat
         file.
@@ -69,6 +82,8 @@ class Record():
             chr_struct
                 int, 0 if chromosome structure/type is "linear" or 1 if 
                 "circular".
+            chr_len
+                int, length of the chromosome as reported on the ID line
             file_path
                 str, file path within which the ENA ID entry originates
 
@@ -102,6 +117,7 @@ class Record():
         self.file_path = file_path
         self.ena_id = ena_id
         self.chr_struct = chr_struct
+        self.length = chr_len
         self.count = 1
         self.uniprotIds = set()
         self.proteinIds = set()
@@ -318,12 +334,15 @@ def process_id_line(line: str, file_path: str) -> tuple[str, int]:
             str, the EMBL Accession ID for the chromosome entry being parsed.
         chr_struct
             int, 0 if chromosome structure/type is "linear" or 1 if "circular".
+        chr_len
+            int, length in nucleotide base pairs of the chromosome entry.
     """
-    # parse ID line using regex to get list of tuple of len 2 group 0 is the 
-    # ENA ID, group 1 is the chromosome structure type
+    # parse ID line using regex to get list of tuple of len 3, group 0 is the 
+    # ENA ID, group 1 is the chromosome structure type, group 2 is the length
+    # if the pattern is not matched, id_groups is an empty list.
     id_groups = ENA_ID_PATTERN.findall(line)
     if id_groups:
-        ena_id, chr_struct = id_groups[0]
+        ena_id, chr_struct, chr_len = id_groups[0]
         
         # chr_struct is the type of chromosome structure, linear or circular; there 
         # are some non-standard structures, skip those.
@@ -338,21 +357,24 @@ def process_id_line(line: str, file_path: str) -> tuple[str, int]:
             # "" ena_id string in the Record.process_record() method
             ena_id = ""
             chr_struct = -1
+            chr_len = 0
+
     else:
         # If the ENA_ID_PATTERN isn't matched then we've hit an unexpected 
         # result. Log it and return uninteresting values. 
         ena_id = ""
         chr_struct = -1
+        chr_len = 0
         print("!!! Ill-formatted ID line observed in " 
                 + f"{file_path}:{line.strip()}")
 
-    return ena_id, chr_struct
+    return ena_id, chr_struct, int(chr_len)
 
 
 def process_location_ranges(
         loc_ranges: list[tuple[int,int]],
         linear_chromosome: bool,
-        chromosome_length: int) -> list:
+        chromosome_length: int) -> list[int,int]:
     """
     Given a list of sequence position ranges, determine the real start and end
     positions for the associated locus. This takes into account the chromosome
@@ -382,22 +404,34 @@ def process_location_ranges(
         flattened_ranges = sum(loc_ranges,())
         return min(flattened_ranges), max(flattened_ranges)
     else:
-        # sequence position indices are 1-indexed rather than 0-indexed
-        # loop over all ranges to see if a the 1 and the last chromosome length
-        # is in one of the ranges.
+        # note: sequence position indices are 1-indexed rather than 0-indexed.
+        # loop over all ranges to see if the chromosome length is in 
+        # one of the ranges.
         passes_length = [
             chromosome_length in range(elem[0],elem[1]+1) 
             for elem in loc_ranges
         ]
+        # loop over all ranges to see if the start index (1) is in one of the 
+        # ranges.
         includes_start = [
             1 in range(elem[0],elem[1]+1) 
             for elem in loc_ranges
         ]
         if True in passes_length and True in includes_start:
-            # found an instance where the locus spans the chromosome length, 
-            # assume that the join components (required for these instances) 
-            # are in ascending order until the relative start happens
-            return loc_ranges[0][0], loc_ranges[-1][1]
+            # found an instance where the locus spans the chromosome length. 
+            # !!! assume that the join components (required for CDSs that span
+            # a relative start position) are in ascending order, crossing the
+            # cyclic boundary condition. 
+            # NOTE: potential source of bugs... And this is really the important
+            # logic to consider for this function.
+            # is it possible to have "join(1..27,len-100..len)"? If so,
+            # the return value will be wrong since its assuming ascending order
+            # of the ranges.
+            start = loc_ranges[0][0]
+            end = loc_ranges[-1][-1]
+            if start < end: 
+                print(f"!!! {loc_ranges}, {linear_chromosome}, {chromosome_length}")
+            return start, end
         else:
             # no range passes through the chromosome_length so treat like a 
             # linear sequence
@@ -448,8 +482,8 @@ def process_file(
                 continue
 
             # check for "ID   " lines to grab ENA IDs and chromosome structure
-            # type. Before doing that, need to check whether a previous Record
-            # (and associated Locus) is ready to be processed. 
+            # type and len. Before doing that, need to check whether a previous
+            # Record (and associated Locus) is ready to be processed. 
             elif line.startswith("ID   "):
                 # check if the enaRecord.current_locus_lines is full
                 if enaRecord.check_locus_lines():
@@ -467,28 +501,35 @@ def process_file(
                 
                 # process the current ID line to grab the ena_id and 
                 # chr_struct info
-                ena_id, chr_struct = process_id_line(line, file_path)
+                ena_id, chr_struct, chr_len = process_id_line(line, file_path)
 
                 # create the new Record object that will start out empty except
-                # for the ena_id and chr_struct instance attributes
+                # for the ena_id, chr_struct, and chr_len instance attributes
                 enaRecord = Record(
-                    ena_id = ena_id, 
-                    chr_struct = chr_struct, 
+                    ena_id = ena_id,
+                    chr_struct = chr_struct,
+                    chr_len = chr_len,
                     file_path = file_path
                 )
 
             # only interested in parsing Records associated with the Fungi 
             # kingdom when considering genomes from Eukaryota domain. 
             # an OC line is always found after an ID line and before any FT 
-            # lines. Just overwrite the enaRecord object.
+            # lines. Just overwrite the enaRecord object if a non-Fungi
+            # eukaryote is being parsed.
             elif (line.startswith("OC   ") 
                     and "Eukaryota" in line 
                     and " Fungi" not in line):
-                enaRecord = Record(ena_id = "", chr_struct = -1, file_path = "")
+                enaRecord = Record(
+                    ena_id = "",
+                    chr_struct = -1,
+                    chr_len = 0,
+                    file_path = ""
+                )
 
             # check whether the current enaRecord object has a True-like ena_id
             # attribute. If it doesn't, then any lines can be skipped since the
-            # active Record will not be parsed into a file.
+            # active Record will not be parsed.
             elif not enaRecord.check_ena_id():
                 continue
 

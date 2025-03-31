@@ -6,15 +6,20 @@ import parse_embl
 def test_id_line_regex():
     """ Testing wrapper func for the ID line regex pattern. """
     line = "ID   CP002679; SV 1; circular; genomic DNA; STD; PRO; 1038839 BP."
-    assert parse_embl.ENA_ID_PATTERN.findall(line) == [("CP002679","circular")]
+    assert parse_embl.ENA_ID_PATTERN.findall(line) == [("CP002679","circular", "1038839")]
 
     line = "ID   BFMR01000110; SV 1; linear; genomic DNA; STD; PRO; 11440 BP."
-    assert parse_embl.ENA_ID_PATTERN.findall(line) == [("BFMR01000110","linear")]
+    assert parse_embl.ENA_ID_PATTERN.findall(line) == [("BFMR01000110","linear, "11440"")]
 
     line = "ID   HC710378; SV 1; XXX; protein; PRT; PRO; 409 BP."
-    assert parse_embl.ENA_ID_PATTERN.findall(line) == [("HC710378","XXX")]
+    assert parse_embl.ENA_ID_PATTERN.findall(line) == [("HC710378","XXX", "409")]
 
+    # check for uninteresting lines
     line = "FT   source          1..478325"
+    assert parse_embl.ENA_ID_PATTERN.findall(line) == []
+
+    # check for missing chromosome length in ID line.
+    line = "ID   CP002679; SV 1; circular; genomic DNA; STD; PRO;"
     assert parse_embl.ENA_ID_PATTERN.findall(line) == []
 
 
