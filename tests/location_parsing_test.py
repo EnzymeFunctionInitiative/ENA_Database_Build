@@ -92,10 +92,17 @@ def test_circular_loc_parsing():
     # Both the chr_len and 1 are found in the list of ranges, but not in the
     # assumed ascending order that the code currently expects. This is a bug.
     line = "FT   CDS             join(complement(1..45),complement(4918..5163))"
-    # grab the paired integers from the line
     matches = parse_embl.CDS_LOC_PATTERN.findall(line)
     matches = [tuple(int(i) for i in tup) for tup in matches]
     assert parse_embl.process_location_ranges(
             matches, chr_struct, chromosome_length) == (1,5163)
+
+    # Both the chr_len and 1 are found in the list of ranges, but not in the
+    # assumed ascending order that the code currently expects. This is a bug.
+    line = "FT   CDS             join(complement(1..45),complement(4918..5163),complement(51..60))"
+    matches = parse_embl.CDS_LOC_PATTERN.findall(line)
+    matches = [tuple(int(i) for i in tup) for tup in matches]
+    assert parse_embl.process_location_ranges(
+            matches, chr_struct, chromosome_length) == (1,60)
 
 
