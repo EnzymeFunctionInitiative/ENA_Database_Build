@@ -9,7 +9,7 @@ def test_id_line_regex():
     assert parse_embl.ENA_ID_PATTERN.findall(line) == [("CP002679","circular", "1038839")]
 
     line = "ID   BFMR01000110; SV 1; linear; genomic DNA; STD; PRO; 11440 BP."
-    assert parse_embl.ENA_ID_PATTERN.findall(line) == [("BFMR01000110","linear, "11440"")]
+    assert parse_embl.ENA_ID_PATTERN.findall(line) == [("BFMR01000110","linear", "11440")]
 
     line = "ID   HC710378; SV 1; XXX; protein; PRT; PRO; 409 BP."
     assert parse_embl.ENA_ID_PATTERN.findall(line) == [("HC710378","XXX", "409")]
