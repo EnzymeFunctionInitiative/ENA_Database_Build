@@ -140,10 +140,10 @@ class Record():
         cds_line = "".join(self.current_locus_lines).split("/")[0]
         # remove "FT ", "CDS " and white space from the cds_line string
         for substring in ["FT ","CDS ","\n"," "]:
-            loc_substring = cds_line.replace(substring,"")
-        # feed the loc_substring into the CDS_LOC_PATTERN to get a list of 
-        # tuples of strs associated with the "x..y" formatted ranges. 
-        loc_ranges = CDS_LOC_PATTERN.findall(loc_substring)
+            cds_line = cds_line.replace(substring,"")
+        # feed the cds_line into the CDS_LOC_PATTERN to get a list of tuples of
+        # strs associated with the "x..y" formatted ranges. 
+        loc_ranges = CDS_LOC_PATTERN.findall(cds_line)
         # make sure the pattern was matched
         if loc_ranges:
             # convert the cds_result list of tuple of strs into list of tuple
