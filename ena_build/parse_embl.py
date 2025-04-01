@@ -469,7 +469,11 @@ def process_file(
             its existence outside of this function is necessary.
     """
     # create the first Record object that will be empty
-    enaRecord = Record(ena_id = "", chr_struct = 0, file_path = file_path)
+    enaRecord = Record(
+        ena_id = "", 
+        chr_struct = -1, 
+        chr_len = 0, 
+        file_path = file_path)
     
     # open and read the gzipped file
     with gzip.open(file_path, 'rt') as f:
