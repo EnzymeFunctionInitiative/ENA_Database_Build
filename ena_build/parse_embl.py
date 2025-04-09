@@ -15,7 +15,7 @@ import gzip
 # This is a very rigid pattern, creating a list of a tuple of len 3.
 ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);.*;\s(\d+)\sBP") 
 
-# much less rigid, but creates a list of two tuples of len 3 each. 
+## much less rigid, but creates a list of two tuples of len 3 each. 
 #ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);|(\d+)\sBP") 
 ## original ID line regex pattern, creating a list of a tuple of len 2.
 #ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);") 
@@ -341,6 +341,7 @@ def process_id_line(line: str, file_path: str) -> tuple[str, int]:
     # ENA ID, group 1 is the chromosome structure type, group 2 is the length
     # if the pattern is not matched, id_groups is an empty list.
     id_groups = ENA_ID_PATTERN.findall(line)
+
     if id_groups:
         ena_id, chr_struct, chr_len = id_groups[0]
         
@@ -384,13 +385,14 @@ def process_location_ranges(
     Parameters
     ----------
         loc_ranges
-            list of tuples of ints, each tuple is a pair of positions. 
+            list of tuples of ints, each tuple is a pair of sequence position
+            indices. Sequence position indices are 1 indexed.
         linear_chromosome
             boolean or equivalent, signifies if the ranges were pulled from a 
             linear chromosome structure or not. 
         chromosome_length
             int, length of the full chromosome; used to determine if a range 
-            spans the relative start position of a circular chromosome
+            spans the relative start position of a circular chromosome.
 
     Returns
     -------
@@ -404,39 +406,50 @@ def process_location_ranges(
         flattened_ranges = sum(loc_ranges,())
         return min(flattened_ranges), max(flattened_ranges)
     else:
-        # note: sequence position indices are 1-indexed rather than 0-indexed.
-        # loop over all ranges to see if the chromosome length is in 
-        # one of the ranges.
-        passes_length = [
-            chromosome_length in range(elem[0],elem[1]+1) 
-            for elem in loc_ranges
-        ]
-        # loop over all ranges to see if the start index (1) is in one of the 
-        # ranges.
-        includes_start = [
-            1 in range(elem[0],elem[1]+1) 
-            for elem in loc_ranges
-        ]
-        if True in passes_length and True in includes_start:
-            # found an instance where the locus spans the chromosome length. 
-            # !!! assume that the join components (required for CDSs that span
-            # a relative start position) are in ascending order, crossing the
-            # cyclic boundary condition. 
-            # NOTE: potential source of bugs... And this is really the important
-            # logic to consider for this function.
-            # is it possible to have "join(1..27,len-100..len)"? If so,
-            # the return value will be wrong since its assuming ascending order
-            # of the ranges.
-            start = loc_ranges[0][0]
-            end = loc_ranges[-1][-1]
-            if start < end: 
-                print(f"!!! {loc_ranges}, {linear_chromosome}, {chromosome_length}")
-            return start, end
+        # handle the ranges knowing the chromosome_length is a periodic 
+        # boundary. Sort loc_ranges by their start value to remove ambiguous 
+        # sorting from the original line.
+        loc_ranges = sorted(loc_ranges, key=lambda x: x[0])
+    
+        # instead of thinking about the ranges, we focus on the gaps btw ranges.
+        # Compute the gap in sequence positions between consecutive loc_ranges.
+        # For adjacent loc_ranges (a, b) and (c, d), gap = (c - b - 1) 
+        gaps = []
+        n = len(loc_ranges)
+        for i in range(n - 1):
+            gap = loc_ranges[i + 1][0] - loc_ranges[i][1] - 1
+            gaps.append(gap)
+    
+        # Calc the gap from last_stop to chromosome_length and from 1 to 
+        # first_start.
+        wrap_gap = (chromosome_length-loc_ranges[-1][1]) + (loc_ranges[0][0]-1)
+    
+        # Determine the largest gap; if the largest gap is not wrapping across
+        # the periodic boundary, this is indicative that the gene spans the 
+        # boundary (this is _not_ definitive though). In this case, we need to
+        # grab the index of the gap to find the real start and stop indices.
+        max_gap = wrap_gap
+        gap_index = None
+        for i, gap in enumerate(gaps):
+            if gap > max_gap:
+                max_gap = gap
+                # grab the index of the gap between loc_ranges[i] and 
+                # loc_ranges[i+1]
+                gap_index = i  
+    
+        # Determine the true spanning range based on the largest gap.
+        if gap_index is None:
+            # Largest gap is the wrap-around gap, so basically treat the 
+            # loc_ranges as if it was a linear chromosome.
+            true_start = loc_ranges[0][0]
+            true_stop = loc_ranges[-1][1]
         else:
-            # no range passes through the chromosome_length so treat like a 
-            # linear sequence
-            flattened_ranges = sum(loc_ranges,())
-            return min(flattened_ranges), max(flattened_ranges)
+            # Largest gap is between loc_ranges[gap_index] and 
+            # loc_ranges[gap_index + 1] instead of the wrap-around gap. 
+            true_start = loc_ranges[gap_index + 1][0]
+            true_stop  = loc_ranges[gap_index][1]
+
+        return true_start, true_stop
 
 
 def process_file(
