@@ -26,13 +26,19 @@ python3 -m pip install .
 ## Running the unit tests
 A small set of unit tests are provided in the `tests` subdirectory. 
 These currently check the regex and protein location parsing functions for accuracy, given a small set of examples. 
-To run these tests, 
+To run all tests, 
 
 ```
 conda activate ena_db_build
-pytest tests/
+pytest
 ```
 
+or, to run individual tests, e.g. `location_parsing_test.py`:
+
+```
+conda activate ena_db_build
+pytest -q tests/location_parsing_test.py
+```
 
 # Running the Dask Workflow
 
