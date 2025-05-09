@@ -1,6 +1,6 @@
 [project]
 name = "ena_build"
-version = "1.0.0"
+version = "1.0.1"
 authors = [
   { name="Russell B Davidson", email="rbdavid@illinois.edu" },
 ]
