@@ -13,11 +13,31 @@ conda activate ena_db_build
 conda config --add channels conda-forge
 
 # install necessary modules
-conda install -y configparser gzip dask biopython
+conda install -y configparser gzip dask
 python3 -m pip install mysql-connector-python 
+
+# for developers only:
+conda install -y pytest
 
 # add this repo's code base as modules
 python3 -m pip install .
+```
+
+## Running the unit tests
+A small set of unit tests are provided in the `tests` subdirectory. 
+These currently check the regex and protein location parsing functions for accuracy, given a small set of examples. 
+To run all tests, 
+
+```
+conda activate ena_db_build
+pytest
+```
+
+or, to run individual tests, e.g. `location_parsing_test.py`:
+
+```
+conda activate ena_db_build
+pytest -q tests/location_parsing_test.py
 ```
 
 # Running the Dask Workflow
