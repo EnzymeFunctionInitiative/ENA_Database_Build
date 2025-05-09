@@ -15,11 +15,6 @@ import gzip
 # This is a very rigid pattern, creating a list of a tuple of len 3.
 ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);.*;\s(\d+)\sBP") 
 
-## much less rigid, but creates a list of two tuples of len 3 each. 
-#ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);|(\d+)\sBP") 
-## original ID line regex pattern, creating a list of a tuple of len 2.
-#ENA_ID_PATTERN = re.compile(r"^ID\s+(\w+);\s\w+\s\w+;\s(\w+);") 
-
 # search for "protein_id" FT lines, group 0 maps to the foreign ID string. 
 # search for UniProtKB/... database accession ID lines, group 1 matches the
 # associated accession ID. 
@@ -47,15 +42,6 @@ XREF_SEARCH_PATTERN = re.compile("|".join(XREF_SEARCH_STRS))
 # uninteresting for our purposes but it is important to note. 
 CDS_LOC_PATTERN = re.compile(r"(\d+)\.\.\>?(\d+)")
 
-## original regex pattern:
-#CDS_LOC_PATTERN = re.compile(r"(\d+)\..*\.\>?(\d+)")
-## grabs the outer two numbers separated by any characters
-## ChatGPT was used to refine the below regex pattern. 
-#CDS_LOC_PATTERN = re.compile(r"(?<![A-Za-z0-9]\.)\b\d+\b")
-## Uses a negative lookbehind for alphanumeric character followed by a period.
-## The \b\d+\b captures any whole "word" numbers, reports these matches in a 
-## list of ints
-
 # If the line matches this search string, this indicates the start of a new 
 # feature block. There are a large number of lines that could be identified
 FT_START_PATTERN = re.compile(r"^FT\s\s\s[a-zA-Z0-9-]")
@@ -64,7 +50,7 @@ FT_START_PATTERN = re.compile(r"^FT\s\s\s[a-zA-Z0-9-]")
 # Define the Record Object
 ###############################################################################
 
-class Record():
+class Record:
     def __init__(
             self, 
             ena_id: str, 
@@ -96,6 +82,9 @@ class Record():
             chr_struct
                 int, 0 if chromosome structure/type is "linear" or 1 if 
                 "circular".
+            length
+                length in base pairs of the chromosome described by the ENA 
+                record; used only for circular chromosomes.
             count
                 incremented count attribute to denote CDS locus position in the
                 chromosome.
@@ -486,7 +475,8 @@ def process_file(
         ena_id = "", 
         chr_struct = -1, 
         chr_len = 0, 
-        file_path = file_path)
+        file_path = file_path
+    )
     
     # open and read the gzipped file
     with gzip.open(file_path, 'rt') as f:
