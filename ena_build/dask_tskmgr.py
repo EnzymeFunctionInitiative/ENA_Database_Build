@@ -11,7 +11,8 @@ import dask
 from distributed import Client, as_completed
 
 import mysql_database
-from dask_tasks import glob_subdirs, glob_files, process_many_files
+from dask_tasks import process_many_files
+from glob_tasks import glob_subdirs, glob_files
 
 ###############################################################################
 # Logging Functions
