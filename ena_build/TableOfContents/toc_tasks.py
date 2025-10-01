@@ -5,7 +5,7 @@ from typing import List, Tuple, Dict, Any
 from dataclass import dataclass, field
 
 import toc
-import mapping
+import index
 
 ###############################################################################
 # Data Class for Gathering File Metadata
@@ -52,11 +52,11 @@ def gather_files_metadata(
         file_path_list: List[str],
         toc_bool: bool = False,
         md5_hash_bool: bool = False,
-        mapping_bool: bool = False,
+        index_bool: bool = False,
     ) -> Tuple[str, List[FileMetadata], float]:
     """
     Given a list of files, process them one at a time. Gather metadata (if
-    toc_bool is True) and/or protein_ids found within the file (if mapping_bool
+    toc_bool is True) and/or protein_ids found within the file (if index_bool
     is True). Return a list of FileMetadata class objects.
 
     Parameters
@@ -94,9 +94,9 @@ def gather_files_metadata(
         else:
             toc_contents = {}
 
-        # gather protein_id mapping information
-        if mapping_bool:
-            ids_list = mapping.process_file(file_path)
+        # gather protein_id index information
+        if index_bool:
+            ids_list = index.process_file(file_path)
         # or not
         else:
             ids_list = []

@@ -35,7 +35,7 @@ def parse_input_arguments() -> argparse.Namespace:
                                              file that tracks progress
         * ``--md5-hash`` or ``-md5``, flag to calculate the md5 hash for each
                                      file.
-        * ``--id-mapping`` or ``-map``, flag to control whether assembly files
+        * ``--id-index`` or ``-index``, flag to control whether assembly files
                                         are processed to gather protein_ids
                                         contained in the associated file.
 
@@ -48,7 +48,7 @@ def parse_input_arguments() -> argparse.Namespace:
             args.n_workers
             args.tskmgr_log_file
             args.md5_hash
-            args.id_mapping
+            args.id_index
     """
     parser = argparse.ArgumentParser(
         description = "Create a Table of Contents for the ENA Database"
@@ -59,7 +59,7 @@ def parse_input_arguments() -> argparse.Namespace:
     parser.add_argument("--n-workers", "-nWorkers", default = 2, type=int, help="Number of workers available to perform tasks, default = 2.")
     parser.add_argument("--tskmgr-log-file", "-log", default = "dask_tskmgr.log", help="Path string for a logging file, default = 'dask_tskmgr.log'.")
     parser.add_argument("--md5-hash", "-md5", action = "store_true", help="Flag to set whether the md5 hash is calculated for each file in the TOC.")
-    parser.add_argument("--id-mapping", "-map", action = "store_true", help="Flag to control whether assembly files are processed to gather protein_ids contained in files.")
+    parser.add_argument("--id-index", "-index", action = "store_true", help="Flag to control whether assembly files are processed to gather protein_ids contained in files.")
     args = parser.parse_args()
     return args
 
@@ -106,7 +106,7 @@ def workflow():
     # given sources
     source_pattern = re.compile(r"_(ENV|PRO|FUN|PHG)_")
     # dir_pattern is used to parse subdirectories' names to make reporting in
-    # TOC/id mapping agnostic to absolute file paths
+    # TOC/id index agnostic to absolute file paths
     dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequence)\/(\w*)")
     # file_name_pattern is used to get the root name of the file
     file_name_pattern = re.compile(r"\/(\w*)\.dat\.gz")
@@ -192,7 +192,7 @@ def workflow():
                         shard,
                         toc_bool = True,
                         md5_hash_bool = args.md5_hash
-                        mapping_bool = args.id_mapping
+                        index_bool = args.id_index
                     ) for shard in shards if shard
                 ]
                 main_logger.info(f"Found {len(results[1])} gzipped files in "
@@ -215,31 +215,36 @@ def workflow():
                 # loop over the FileaMetadata objects and write their
                 # information out to file
                 for metadata in results[1]:
+                    # create a directory subtree that specifies where
+                    # the assembly file is positioned in an assumed
+                    # ENA directory tree
+                    dir_subtree = os.path.join(
+                        *[
+                            elem for elem in dir_pattern.findall(
+                                metadata.file_path
+                            ) if elem
+                        ]
+                    )
+                    # grab the file name from the file_path
+                    file_name = file_name_pattern.findall(
+                        metadata.file_path
+                    )[0]
+
+                    # make the values in the .toc dict into a tab separated str
                     toc_string = "\t".join(
                         [metadata.toc[key] for key in toc_column_list]
                     )
-                    tab.write(f"{metadata.file_path}\t{toc_string}\n")
+                    
+                    # write the TOC 
+                    tab.write(f"{dir_subtree}\t{file_name}\t{toc_string}\n")
 
-                    # write id mapping to a file as well.
-                    if args.id_mapping:
-                        with open(args.output_dir + "protein_id_mapping.tab","a") as map_file:
-                            # create a directory subtree that specifies where
-                            # the assembly file is positioned in an assumed
-                            # ENA directory tree
-                            dir_subtree = os.path.join(
-                                *[
-                                    elem for elem in dir_pattern.findall(
-                                        metadata.file_path
-                                    ) if elem
-                                ]
-                            )
-                            # grab the file name from the file_path
-                            file_name = file_name_pattern.findall(
-                                metadata.file_path
-                            )[0]
-
-                            # write the id's mapping info to file
-                            map_file.write(
+                    # write the index to a file as well
+                    if args.id_index:
+                        with open(
+                            args.output_dir + "protein_id_index.tab","a"
+                        ) as index:
+                            # write the protein_id's index info to file
+                            index.write(
                                 "\n".join(
                                     [
                                         f"{id}\t{file_name}\t{dir_subtree}"
@@ -247,7 +252,7 @@ def workflow():
                                     ]
                                 )
                             )
-                            map_file.write("\n")
+                            index.write("\n")
 
     main_logger.info(
         f"Closing dask pipeline and logging. Time: {time.time()}"
