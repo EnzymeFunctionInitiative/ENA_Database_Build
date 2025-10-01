@@ -116,18 +116,3 @@ def gather_files_metadata(
     return "gather_files_metadata", metadata_obj_list, time.time() - st
 
 
-    ## use regex to match the parent directories' names; three layers worth if
-    ## in `wgs` tree of ENA or two layers worth if in `sequence` tree. This
-    ## regex will match a file path string, creating a list of a tuple with len
-    ## 5. First three elements are associated with the wgs tree, the remaining
-    ## two with the sequence tree. 
-    ## NOTE: THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
-    #dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequence)\/(\w*)")
-    ## use regex to match the file name stem from the given file path; will 
-    ## create a list of len 1. 
-    #file_pattern = re.compile(r"\/(\w*)\.dat\.gz")
-
-        #file_md5sum_hash, ids_mapping = toc.process_file(file_path)
-        #file_hash_dict[file_path] = file_md5sum_hash
-        #id_dict[file_path] = ids_mapping
-

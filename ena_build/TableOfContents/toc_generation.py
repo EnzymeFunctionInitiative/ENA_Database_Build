@@ -22,12 +22,12 @@ def parse_input_arguments() -> argparse.Namespace:
     """
     Returns an `<argparse.Namespace>` with attributes associated with the input
     arguments for the ENA database build script:
-        * ``--ena-paths``, a number of path strings; accepts multiple values 
+        * ``--ena-paths``, a number of path strings; accepts multiple values
                            and returns a list of the values
         * ``--output-dir`` or ``-out``, path string within which files will be
                                         written
         * ``--scheduler-file`` or ``-s``, path string to the dask-distributed
-                                            scheduler's json file for tracking 
+                                            scheduler's json file for tracking
                                             workers
         * ``--n-workers`` or ``-nWorkers``, number of dask-distributed workers
                                             available to perform tasks
@@ -36,9 +36,9 @@ def parse_input_arguments() -> argparse.Namespace:
         * ``--md5-hash`` or ``-md5``, flag to calculate the md5 hash for each
                                      file.
         * ``--id-mapping`` or ``-map``, flag to control whether assembly files
-                                        are processed to gather protein_ids 
+                                        are processed to gather protein_ids
                                         contained in the associated file.
-    
+
     Returns
     -------
         An :external+python:py:class:`argparse.Namespace` object with attributes
@@ -70,7 +70,7 @@ def parse_input_arguments() -> argparse.Namespace:
 
 def workflow():
     """ Run the Dask workflow to parse the ENA dataset. """
-    
+
     # parse input arguments
     args = parse_input_arguments()
 
@@ -83,7 +83,7 @@ def workflow():
     for arg in vars(args):
         main_logger.info(f"{arg}: {getattr(args,arg)}")
 
-    # also list the dask parameters; this is only included for thoroughness 
+    # also list the dask parameters; this is only included for thoroughness
     # sake; we haven't messed with any of these parameters
     dask_parameter_string = "#"*80 +"\nDask parameters:\n"
     for key, value in dask.config.config.items():
@@ -93,14 +93,14 @@ def workflow():
 
     # start the dask client.
     client = Client(scheduler_file=args.scheduler_file)
-    
+
     processing_tasks = 0
     finished_processing_tasks = 0
-    
+
     # NOTE: this is a rough optimization for handling large lists of unevenly
     # distributed (in subdirectories) sets of files.
     ideal_nFiles = 10
-  
+
     ## pre-compile the regex patterns
     # source_pattern is used as a file filter to only consider files from the
     # given sources
@@ -111,12 +111,12 @@ def workflow():
     # file_name_pattern is used to get the root name of the file
     file_name_pattern = re.compile(r"\/(\w*)\.dat\.gz")
 
-    # submit tasks to the client that glob search for the intermediate layer 
+    # submit tasks to the client that glob search for the intermediate layer
     # of subdirs in ENA directory tree
     glob_subdirs_futures = client.map(glob_subdirs, args.ena_paths)
-    # setup the iterator that is filled with futures as they complete; this 
-    # tasks_completed object also lets us add new tasks to the queue, making 
-    # this for loop very flexible/dynamic. 
+    # setup the iterator that is filled with futures as they complete; this
+    # tasks_completed object also lets us add new tasks to the queue, making
+    # this for loop very flexible/dynamic.
     tasks_completed = as_completed(glob_subdirs_futures)
     # loop over finished tasks
     with open(args.output_dir + "ENA_file_toc.tab","w") as tab:
@@ -128,7 +128,7 @@ def workflow():
             if not results[1]:
                 # results[1] will always be some true-equivalent value unless
                 # if a glob search returns an empty list. if this is the case,
-                # then move on. No new tasks need to be submitted. Log the 
+                # then move on. No new tasks need to be submitted. Log the
                 # result.
                 if "glob" in results[0]:
                     main_logger.info(
@@ -152,11 +152,11 @@ def workflow():
             elif results[0] == "glob_subdirs":
                 # finished task is a glob_subdirs task, so results[1] will be
                 # a list of subdirectories. For each subdir, submit a new task
-                # to glob for gzipped files. 
+                # to glob for gzipped files.
                 main_logger.info(
                     f"Found {len(results[1])} subdirectories in {results[3]}."
                     + f" Took {results[2]} seconds. Submitting "
-                    + f"{len(results[1])} new tasks to search for gzipped " 
+                    + f"{len(results[1])} new tasks to search for gzipped "
                     + "files.")
                 # list comprehension is submitting a new task to the client,
                 # one for each subdirectory found in the intermediate
@@ -175,14 +175,14 @@ def workflow():
             elif results[0] == "glob_files":
                 # finished task is a glob_files task, so results[1] will be
                 # the list of gzipped files. Break this list down into bite
-                # sized chunks and submit a new task for each chunk. 
+                # sized chunks and submit a new task for each chunk.
                 #shards = [results[1][i::args.n_workers] for i in range(args.n_workers)]
                 nTasks = int(len(results[1])/ideal_nFiles) + 1
                 shards = [results[1][i::nTasks] for i in range(nTasks)]
 
                 # list comprehension is submitting a new task to the client,
                 # one for each worker, evenly separating the number of files
-                # to be processed across the tasks. If n_workers is > than 
+                # to be processed across the tasks. If n_workers is > than
                 # files in results[1], then only the necessary number of tasks
                 # to process one file per worker are created.
                 #new_futures = [client.submit(process_many_files, shard, database_params = database_params, db_name = args.db_name, final_output_dir = args.output_dir, temp_output_dir = args.local_scratch) for shard in shards if shard]
@@ -195,7 +195,7 @@ def workflow():
                         mapping_bool = args.id_mapping
                     ) for shard in shards if shard
                 ]
-                main_logger.info(f"Found {len(results[1])} gzipped files in " 
+                main_logger.info(f"Found {len(results[1])} gzipped files in "
                     + f"{results[3]}. Took {results[2]} seconds. Sharding the "
                     + f"list into {len(new_futures)} tasks.")
                 processing_tasks += len(new_futures)
@@ -219,8 +219,8 @@ def workflow():
                         [metadata.toc[key] for key in toc_column_list]
                     )
                     tab.write(f"{metadata.file_path}\t{toc_string}\n")
-                    
-                    # write id mapping to a file as well. 
+
+                    # write id mapping to a file as well.
                     if args.id_mapping:
                         with open(args.output_dir + "protein_id_mapping.tab","a") as map_file:
                             # create a directory subtree that specifies where
@@ -242,13 +242,13 @@ def workflow():
                             map_file.write(
                                 "\n".join(
                                     [
-                                        f"{id}\t{file_name}\t{dir_subtree}" 
+                                        f"{id}\t{file_name}\t{dir_subtree}"
                                         for id in metadata.ids
                                     ]
                                 )
                             )
                             map_file.write("\n")
-                            
+
     main_logger.info(
         f"Closing dask pipeline and logging. Time: {time.time()}"
     )
