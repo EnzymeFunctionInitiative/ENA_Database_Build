@@ -1,18 +1,14 @@
 
 import os
-import shutil
-import sys
 import argparse
 import time
-import json
 
 import dask
 from distributed import Client, as_completed
 
-import mysql_database
 from ..workflow_logging import setup_logger, clean_logger
 from ..glob_tasks import glob_subdirs, glob_files
-from toc_tasks import gather_files_metadata
+from metadata_generation_tasks import gather_files_metadata
 
 ###############################################################################
 # Parse Input Arguments and Files
