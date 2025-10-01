@@ -3,7 +3,6 @@ import os
 import shutil
 import sys
 import argparse
-import logging
 import time
 import json
 
@@ -11,33 +10,9 @@ import dask
 from distributed import Client, as_completed
 
 import mysql_database
+from ..workflow_logging import setup_logger, clean_logger
 from ..glob_tasks import glob_subdirs, glob_files
 from toc_tasks import gather_files_metadata
-
-###############################################################################
-# Logging Functions
-###############################################################################
-
-def setup_logger(name, log_file, level=logging.INFO):
-    """To setup as many loggers as you want"""
-    formatter = logging.Formatter('%(asctime)s    %(levelname)s       %(message)s')
-    handler = logging.FileHandler(log_file)
-    handler.setFormatter(formatter)
-
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.addHandler(handler)
-
-    return logger
-
-
-def clean_logger(logger):
-    """To cleanup the logger instances once we are done with them"""
-    for handle in logger.handlers:
-        handle.flush()
-        handle.close()
-        logger.removeHandler(handle)
-
 
 ###############################################################################
 # Parse Input Arguments and Files
@@ -60,6 +35,9 @@ def parse_input_arguments() -> argparse.Namespace:
                                              file that tracks progress
         * ``--md5-hash`` or ``-md5``, flag to calculate the md5 hash for each
                                      file.
+        * ``--id-mapping`` or ``-map``, flag to control whether assembly files
+                                        are processed to gather protein_ids 
+                                        contained in the associated file.
     
     Returns
     -------
@@ -70,6 +48,7 @@ def parse_input_arguments() -> argparse.Namespace:
             args.n_workers
             args.tskmgr_log_file
             args.md5_hash
+            args.id_mapping
     """
     parser = argparse.ArgumentParser(
         description = "Create a Table of Contents for the ENA Database"
@@ -80,6 +59,7 @@ def parse_input_arguments() -> argparse.Namespace:
     parser.add_argument("--n-workers", "-nWorkers", default = 2, type=int, help="Number of workers available to perform tasks, default = 2.")
     parser.add_argument("--tskmgr-log-file", "-log", default = "dask_tskmgr.log", help="Path string for a logging file, default = 'dask_tskmgr.log'.")
     parser.add_argument("--md5-hash", "-md5", action = "store_true", help="Flag to set whether the md5 hash is calculated for each file in the TOC.")
+    parser.add_argument("--id-mapping", "-map", action = "store_true", help="Flag to control whether assembly files are processed to gather protein_ids contained in files.")
     args = parser.parse_args()
     return args
 
@@ -116,8 +96,21 @@ def workflow():
     
     processing_tasks = 0
     finished_processing_tasks = 0
+    
+    # NOTE: this is a rough optimization for handling large lists of unevenly
+    # distributed (in subdirectories) sets of files.
     ideal_nFiles = 10
-   
+  
+    ## pre-compile the regex patterns
+    # source_pattern is used as a file filter to only consider files from the
+    # given sources
+    source_pattern = re.compile(r"_(ENV|PRO|FUN|PHG)_")
+    # dir_pattern is used to parse subdirectories' names to make reporting in
+    # TOC/id mapping agnostic to absolute file paths
+    dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequence)\/(\w*)")
+    # file_name_pattern is used to get the root name of the file
+    file_name_pattern = re.compile(r"\/(\w*)\.dat\.gz")
+
     # submit tasks to the client that glob search for the intermediate layer 
     # of subdirs in ENA directory tree
     glob_subdirs_futures = client.map(glob_subdirs, args.ena_paths)
@@ -137,14 +130,29 @@ def workflow():
                 # if a glob search returns an empty list. if this is the case,
                 # then move on. No new tasks need to be submitted. Log the 
                 # result.
-                main_logger.info(
-                    f"{results[-1]} did not have any expected files/subdirs"
-                )
+                if "glob" in results[0]:
+                    main_logger.info(
+                        f"{results[-1]} did not have any expected files/subdirs"
+                    )
+                if results[0] == "gather_files_metadata":
+                    finished_processing_tasks += 1
+                    main_logger.info(
+                        f"No file metadata was gathered for the set of files."
+                        + f" This took {results[2]} seconds."
+                        + f" {finished_processing_tasks} tasks completed out of"
+                        + f" {processing_tasks}."
+                    )
+                else:
+                    main_logger.info(
+                        "Something's gone wrong. Closing down. Time: "
+                        + f"{time.time()}"
+                    )
+                    clean_logger(main_logger)
 
             elif results[0] == "glob_subdirs":
                 # finished task is a glob_subdirs task, so results[1] will be
-                # the list of subdirectories. For each subdir, submit a new
-                # task to glob for gzipped files. 
+                # a list of subdirectories. For each subdir, submit a new task
+                # to glob for gzipped files. 
                 main_logger.info(
                     f"Found {len(results[1])} subdirectories in {results[3]}."
                     + f" Took {results[2]} seconds. Submitting "
@@ -155,7 +163,11 @@ def workflow():
                 # directory. The new future gets added to the task_completed
                 # iterator so will be gathered and logged in this for loop.
                 new_futures = [
-                    client.submit(glob_files, subdir) for subdir in results[1]
+                    client.submit(
+                        glob_files,
+                        subdir,
+                        source_pattern
+                    ) for subdir in results[1]
                 ]
                 for new_future in new_futures:
                     tasks_completed.add(new_future)
@@ -176,9 +188,11 @@ def workflow():
                 #new_futures = [client.submit(process_many_files, shard, database_params = database_params, db_name = args.db_name, final_output_dir = args.output_dir, temp_output_dir = args.local_scratch) for shard in shards if shard]
                 new_futures = [
                     client.submit(
-                        process_many_files,
+                        gather_files_metadata,
                         shard,
-                        final_output_dir = args.output_dir
+                        toc_bool = True,
+                        md5_hash_bool = args.md5_hash
+                        mapping_bool = args.id_mapping
                     ) for shard in shards if shard
                 ]
                 main_logger.info(f"Found {len(results[1])} gzipped files in " 
@@ -198,14 +212,43 @@ def workflow():
                     + f" seconds. {finished_processing_tasks} tasks completed"
                     + f" out of {processing_tasks}."
                 )
-                # loop over the FileaMetadata objects and writing their
+                # loop over the FileaMetadata objects and write their
                 # information out to file
                 for metadata in results[1]:
                     toc_string = "\t".join(
                         [metadata.toc[key] for key in toc_column_list]
                     )
                     tab.write(f"{metadata.file_path}\t{toc_string}\n")
+                    
+                    # write id mapping to a file as well. 
+                    if args.id_mapping:
+                        with open(args.output_dir + "protein_id_mapping.tab","a") as map_file:
+                            # create a directory subtree that specifies where
+                            # the assembly file is positioned in an assumed
+                            # ENA directory tree
+                            dir_subtree = os.path.join(
+                                *[
+                                    elem for elem in dir_pattern.findall(
+                                        metadata.file_path
+                                    ) if elem
+                                ]
+                            )
+                            # grab the file name from the file_path
+                            file_name = file_name_pattern.findall(
+                                metadata.file_path
+                            )[0]
 
+                            # write the id's mapping info to file
+                            map_file.write(
+                                "\n".join(
+                                    [
+                                        f"{id}\t{file_name}\t{dir_subtree}" 
+                                        for id in metadata.ids
+                                    ]
+                                )
+                            )
+                            map_file.write("\n")
+                            
     main_logger.info(
         f"Closing dask pipeline and logging. Time: {time.time()}"
     )

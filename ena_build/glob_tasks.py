@@ -82,13 +82,3 @@ def glob_files(
     return "glob_files", files, time.time() - st, dir_path
 
 
-
-    ## Only a subset of data files in the ENA sequence/ subdir are of interest 
-    ## to us. As far as I know, the second underscored section of the file name
-    ## denote the origin species type, which is what we need to consider.
-    ## NOTE: THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
-    #if "sequence" in dir_path:
-    #    # NOTE: regex to only gather file names with (ENV|PRO|FUN|PHG) in them
-    #    pattern = re.compile(r"_(ENV|PRO|FUN|PHG)_")
-    #    files = [file_ for file_ in files if pattern.search(file_)]
-
