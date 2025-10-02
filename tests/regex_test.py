@@ -2,6 +2,7 @@
 import pytest
 
 import parse_embl
+import glob_tasks
 
 def test_id_line_regex():
     """ Testing wrapper func for the ID line regex pattern. """
@@ -94,4 +95,43 @@ FT   CDS             join(1..100,J00194.1:100..202) """
     print(locs)
     assert locs == ground_truth
 
+
+# write test for the glob_tasks.SOURCE_PATTERN
+#                    glob_tasks.DIR_PATTERN
+#                    glob_tasks.FILE_NAME_PATTERN
+
+path_data = [
+    (
+        "path_to_ena/wgs/suppressed/cyr/CYRY01.dat.gz",
+        (False, ["wgs","suppressed","cyr"], "CYRY01")
+    ),
+    (
+        "path_to_ena/sequence/con-std_latest/con/CON_ENV_1.dat.gz",
+        (True, ["sequence","con-std_latest","con"], "CON_ENV_1")
+    ),
+    (
+        "fake/path/to/test_failure",
+        (False,[],False)
+    )
+]
+
+test_data = [pytest.param(elem) for elem in path_data]
+
+@pytest.mark.parameterize("file_path, expected_out", test_data)
+def test_source_regex(file_path, expected_out):
+    """ Testing wrapper func for gathering (sub)directory strings """
+    results = glob_tasks.SOURCE_PATTERN.findall(file_path)
+    assert bool(results) == expected_out[0]
+
+@pytest.mark.parameterize("file_path, expected_out", test_data)
+def test_source_dir_regex(file_path, expected_out):
+    """ Testing wrapper func for gathering (sub)directory strings """
+    results = glob_tasks.DIR_PATTERN.findall(file_path)
+    assert results[0] == expected_out[1]
+
+@pytest.mark.parameterize("file_path, expected_out", test_data)
+def test_file_name_regex():
+    """ Testing wrapper func for getting a filename stem """
+    results = glob_tasks.FILE_NAME_PATTERN.findall(file_path)
+    assert results[0] == expected_out[2]
 

@@ -7,7 +7,7 @@ import dask
 from distributed import Client, as_completed
 
 from ..workflow_logging import setup_logger, clean_logger
-from ..glob_tasks import glob_subdirs, glob_files
+from ..glob_tasks import glob_subdirs, glob_files, SOURCE_PATTERN, DIR_PATTERN, FILE_NAME_PATTERN
 from metadata_generation_tasks import gather_files_metadata
 
 ###############################################################################
@@ -97,16 +97,6 @@ def workflow():
     # distributed (in subdirectories) sets of files.
     ideal_nFiles = 10
 
-    ## pre-compile the regex patterns
-    # source_pattern is used as a file filter to only consider files from the
-    # given sources
-    source_pattern = re.compile(r"_(ENV|PRO|FUN|PHG)_")
-    # dir_pattern is used to parse subdirectories' names to make reporting in
-    # TOC/id index agnostic to absolute file paths
-    dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequence)\/(\w*)")
-    # file_name_pattern is used to get the root name of the file
-    file_name_pattern = re.compile(r"\/(\w*)\.dat\.gz")
-
     # submit tasks to the client that glob search for the intermediate layer
     # of subdirs in ENA directory tree
     glob_subdirs_futures = client.map(glob_subdirs, args.ena_paths)
@@ -162,7 +152,7 @@ def workflow():
                     client.submit(
                         glob_files,
                         subdir,
-                        source_pattern
+                        SOURCE_PATTERN
                     ) for subdir in results[1]
                 ]
                 for new_future in new_futures:
@@ -216,13 +206,13 @@ def workflow():
                     # ENA directory tree
                     dir_subtree = os.path.join(
                         *[
-                            elem for elem in dir_pattern.findall(
+                            elem for elem in DIR_PATTERN.findall(
                                 metadata.file_path
                             ) if elem
                         ]
                     )
                     # grab the file name from the file_path
-                    file_name = file_name_pattern.findall(
+                    file_name = FILE_NAME_PATTERN.findall(
                         metadata.file_path
                     )[0]
 

@@ -169,7 +169,7 @@ def workflow():
             # for each subdirectory found in the intermediate directory. The
             # new future gets added to the task_completed iterator so will be
             # gathered and logged in this for loop.
-            new_futures = [client.submit(glob_files, subdir) for subdir in results[1]]
+            new_futures = [client.submit(glob_files, subdir, SOURCE_PATTERN) for subdir in results[1]]
             for new_future in new_futures:
                 tasks_completed.add(new_future)
         elif results[0] == "glob_files":
