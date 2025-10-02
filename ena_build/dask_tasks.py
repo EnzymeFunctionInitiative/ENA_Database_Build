@@ -1,91 +1,16 @@
 
 import time
-import glob
-import gzip
 import re
 import os
 import shutil
 
 import mysql_database
 import parse_embl
+from glob_tasks import DIR_PATTERN, FILE_NAME_PATTERN
 
 ###############################################################################
 # Functions used as Dask Tasks
 ###############################################################################
-
-def glob_subdirs(dir_path: str) -> tuple:
-    """
-    Search for subdirectories in the provided directory path.
-
-    Parameters
-    ----------
-        dir_path
-            str, global or local path within which the search for subdirs
-            will occur. 
-
-    Returns
-    -------
-        "glob_subdirs"
-            str, used to ID type of task.
-        subdir_list
-            list of strs, each element corresponding to a found subdir.
-        `time.time() - st`
-            float, elapsed time for this task, units: seconds.
-        dir_path
-            str, same as given input.
-    """
-    st = time.time()
-    # Grab all subdirectory path strings in the given dir_path
-    subdir_list = [
-        dir_path + "/" + dir_.name 
-        for dir_ in os.scandir(dir_path) 
-        if not dir_.name.startswith('.') 
-        and dir_.is_dir()
-    ]
-    return "glob_subdirs", subdir_list, time.time() - st, dir_path
-
-
-def glob_files(dir_path: str) -> tuple:
-    """
-    Return list of files matching the search string.
-    
-    Parameters
-    ----------
-        dir_path
-            str, global or local path within which the search for subdirs will
-            occur.
-
-    Returns
-    -------
-        "glob_files"
-            str, used to ID type of task.
-        files
-            list of strs, each element corresponding to a found file.
-        `time.time() - st`
-            float, elapsed time for this task, units: seconds.
-        dir_path
-            str, same as given input.
-    """
-    st = time.time()
-    # Grab all file path strings in the given dir_path
-    files = [
-        dir_path + "/" + file.name 
-        for file in os.scandir(dir_path) 
-        if file.name.endswith('.dat.gz') 
-        and file.is_file()
-    ]
-    
-    # Only a subset of data files in the ENA sequence/ subdir are of interest 
-    # to us. As far as I know, the second underscored section of the file name
-    # denote the origin species type, which is what we need to consider.
-    # NOTE: THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
-    if "sequence" in dir_path:
-        # NOTE: regex to only gather file names with (ENV|PRO|FUN|PHG) in them
-        pattern = re.compile(r"_(ENV|PRO|FUN|PHG)_")
-        files = [file_ for file_ in files if pattern.search(file_)]
-
-    return "glob_files", files, time.time() - st, dir_path
-
 
 def process_many_files(
         file_path_list: list, 
@@ -129,23 +54,11 @@ def process_many_files(
 
     """
     st = time.time()
-    # use regex to match the parent directories' names; three layers worth if
-    # in `wgs` tree of ENA or two layers worth if in `sequence` tree. This
-    # regex will match a file path string, creating a list of a tuple with len
-    # 5. First three elements are associated with the wgs tree, the remaining
-    # two with the sequence tree. 
-    # NOTE: THIS MAY BE A BUG DEPENDING ON CHANGES MADE BTW ENA VERSIONS
-    dir_pattern = re.compile(r"(wgs)\/(\w*)\/(\w*)|(sequence)\/(\w*)")
-    # use regex to match the file name stem from the given file path; will 
-    # create a list of len 1. 
-    file_pattern = re.compile(r"\/(\w*)\.dat\.gz")
 
-    # apply the regex on the first file string in file_path_list, only grab 
-    # groups that were successfully matched. 
-    # NOTE: this assumes that all files in the file_path_list are sourced from
+    # NOTE: below assumes that all files in the file_path_list are sourced from
     # the same directory; this will be a bug if files from different source dirs
     # are included in file_path_list
-    matches = [elem for elem in dir_pattern.findall(file_path_list[0])[0] if elem]
+    matches = [elem for elem in DIR_PATTERN.findall(file_path_list[0])[0] if elem]
     # create an output_dir string that easily maps to the files being parsed.
     # format will be e.g. "wgs-public-wds" or "sequence-con"
     if temp_output_dir:
@@ -168,7 +81,7 @@ def process_many_files(
     for file_path in file_path_list:
         start_time = time.time()
         # grab the stem of the file name to use in writing results
-        fn_name = file_pattern.findall(file_path)[0]
+        fn_name = FILE_NAME_PATTERN.findall(file_path)[0]
         tab_file = out_dir + f"/{fn_name}.tab"
         # process the file
         parse_embl.process_file(

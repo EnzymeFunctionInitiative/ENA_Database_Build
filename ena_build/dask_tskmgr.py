@@ -11,32 +11,9 @@ import dask
 from distributed import Client, as_completed
 
 import mysql_database
-from dask_tasks import glob_subdirs, glob_files, process_many_files
-
-###############################################################################
-# Logging Functions
-###############################################################################
-
-def setup_logger(name, log_file, level=logging.INFO):
-    """To setup as many loggers as you want"""
-    formatter = logging.Formatter('%(asctime)s    %(levelname)s       %(message)s')
-    handler = logging.FileHandler(log_file)
-    handler.setFormatter(formatter)
-
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.addHandler(handler)
-
-    return logger
-
-
-def clean_logger(logger):
-    """To cleanup the logger instances once we are done with them"""
-    for handle in logger.handlers:
-        handle.flush()
-        handle.close()
-        logger.removeHandler(handle)
-
+from workflow_logging import setup_logger, clean_logger
+from dask_tasks import process_many_files
+from glob_tasks import glob_subdirs, glob_files, SOURCE_PATTERN
 
 ###############################################################################
 # Parse Input Arguments and Files
@@ -192,7 +169,7 @@ def workflow():
             # for each subdirectory found in the intermediate directory. The
             # new future gets added to the task_completed iterator so will be
             # gathered and logged in this for loop.
-            new_futures = [client.submit(glob_files, subdir) for subdir in results[1]]
+            new_futures = [client.submit(glob_files, subdir, SOURCE_PATTERN) for subdir in results[1]]
             for new_future in new_futures:
                 tasks_completed.add(new_future)
         elif results[0] == "glob_files":

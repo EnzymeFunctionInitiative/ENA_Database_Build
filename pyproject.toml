@@ -21,6 +21,7 @@ Repository = "https://github.com/EnzymeFunctionInitiative/ENA_Database_Build"
 
 [project.scripts]
 ena_dask_tskmgr = "dask_tskmgr:workflow"
+ena_metadata_generation = "GenerateMetadata.ena_metadata_generation:workflow"
 
 [build-system]
 requires = ["setuptools >= 61.0"]
