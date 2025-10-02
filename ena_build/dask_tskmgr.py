@@ -13,7 +13,7 @@ from distributed import Client, as_completed
 import mysql_database
 from workflow_logging import setup_logger, clean_logger
 from dask_tasks import process_many_files
-from glob_tasks import glob_subdirs, glob_files
+from glob_tasks import glob_subdirs, glob_files, SOURCE_PATTERN
 
 ###############################################################################
 # Parse Input Arguments and Files
